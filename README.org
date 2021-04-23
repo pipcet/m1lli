@@ -1,0 +1,19 @@
+* m1lli
+
+It's not quite m1n1 [https://github.com/AsahiLinux/m1n1].
+
+This is a bootloader for Linux based on a somewhat minified Linux
+kernel and the `kexec()` feature.  So m1lli refers to the kernel and
+some minimal userspace code.
+
+** kernel configuration
+*** included features
+**** a single CPU core
+**** keyboard (I'd like to get rid of this again)
+**** USB gadget-mode code
+*** excluded features
+**** NVMe
+**** wireless LAN
+**** USB host-mode code
+**** SMP code
+**** SMC code
