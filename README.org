@@ -2,9 +2,9 @@
 
 It's not quite m1n1 [https://github.com/AsahiLinux/m1n1].
 
-This is a bootloader for Linux based on a somewhat minified Linux
-kernel and the `kexec()` feature.  So m1lli refers to the kernel and
-some minimal userspace code.
+This is a bootloader for Linux based on a somewhat minified Linux kernel and the `kexec()` feature.  So m1lli refers to the kernel and some minimal userspace code.
+
+The idea is that the initial kernel, which is all that we need to interact with MacOS for, will be stable enough so it doesn't need to be flashed very often.
 
 ** kernel configuration
 *** included features
@@ -12,6 +12,7 @@ some minimal userspace code.
 **** keyboard (I'd like to get rid of this again)
 **** USB gadget-mode code
 *** excluded features
+**** kernel modules
 **** NVMe
 **** wireless LAN
 **** USB host-mode code
