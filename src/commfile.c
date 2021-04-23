@@ -13,6 +13,7 @@ int main(void)
   int fd = open("/commfile", O_RDWR);
   if (fd < 0)
     return -1;
+  lseek(fd, 1024 * 1024, SEEK_SET);
   write(fd, "m1lli is ready and waiting\n", strlen("m1lli is ready and waiting\n"));
   while (true) {
     char buf[32];
