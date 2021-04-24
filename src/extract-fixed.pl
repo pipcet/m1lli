@@ -94,14 +94,14 @@ setup_adt("adt.contents");
 setup_adt("reserved-memory.adt\@800000000");
 setup("hwaddr", "chosen.hwaddr-wlan0");
 setup("hwaddr", "chosen.hwaddr-bt0");
-setup_chosen("chosen.bootargs");
-setup_chosen("chosen.cmdline");
-setup_framebuffer("framebuffer\@9e0df8000.*");
+setup("chosen", "chosen.bootargs");
+setup("chosen", "chosen.cmdline");
+setup("framebuffer", "framebuffer\@9e0df8000.*");
 setup("random", "chose.kaslr-seed");
-setup("applestart", "soc.applestart\@23b754004.reg");
+setup("normal", "soc.applestart\@23b754004.reg");
 
   LOOP:
-while (<>) {
+while (<STDIN>) {
     chomp;
     my $type = "normal";
     for my $str (keys %types) {
@@ -109,7 +109,7 @@ while (<>) {
 	$type = $types{$str} if /^$str /;
     }
     if (!$fh{$type}) {
-	open $fh{$type}, "> $ARGV[1]-$type.dtp";
+	open $fh{$type}, "> $ARGV[0]-$type.dtp";
     }
     $fh{$type}->print("$_\n");
 }
