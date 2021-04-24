@@ -52,7 +52,8 @@ dd if=/sys/firmware/fdt of=/commfile conv=notrunc
 while /bin/busybox true; do
     /bin/commfile;
 done &
-(/bin/busybox sleep 15 && ! test -e /noboot && /bin/kexec -sfx /boot/Image /boot/fdt) &
+/bin/busybox md5sum /boot/fdt
+(/bin/busybox sleep 15 && ! test -e /noboot && /bin/kexec -dfix /boot/Image --dtb=/boot/fdt) &
 (/bin/busybox sleep 30 && /bin/busybox reboot) &
 read; touch /noboot
 while /bin/busybox true; do
