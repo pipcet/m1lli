@@ -103,8 +103,13 @@ setup("applestart", "soc.applestart\@23b754004.reg");
   LOOP:
 while (<>) {
     chomp;
+    my $type = "normal";
     for my $str (keys %types) {
-	next LOOP if /^$str /; # yes, yes, this matches the string as a regexp. Good enough for now (TM)
+	# yes, yes, this matches the string as a regexp. Good enough for now (TM)
+	$type = $types{$str} if /^$str /;
     }
-    print "$_\n";
+    if (!$fh{$type}) {
+	open $fh{$type}, "> $ARGV[1]-$type.dtp";
+    }
+    $fh{$type}->print("$_\n");
 }
