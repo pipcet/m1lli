@@ -37,3 +37,11 @@ The idea is that the initial kernel, which is all that we need to interact with 
 | l1lli  | no  | no      | no      | yes   |
 | stage2 | no  | yes     | yes     | yes   |
 | Linux  | yes | yes     | yes     | no    |
+
+#+INCLUDE "commfile/README.org" :minlevel 2
+#+INCLUDE "l1lli/README.org" :minlevel 2
+#+INCLUDE "m1n1/README.org" :minlevel 2
+#+INCLUDE "machoImage/README.org" :minlevel 2
+#+INCLUDE "scripts/README.org" :minlevel 2
+#+INCLUDE "src/README.org" :minlevel 2
+#+INCLUDE "stage2/README.org" :minlevel 2
