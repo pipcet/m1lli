@@ -6,9 +6,7 @@
 # /bin/kexec -xsf /boot/Image --dtb=/sys/firmware/fdt
 tar xzvf /perl.tar.gz
 tar xvf /m1lli-scripts.tar
-sleep 3
 perl /copy-fdt-props.pl
-sleep 3
 /bin/busybox cat /proc/devices | while read NUM NAME; do if [ "$NAME" = "ttyGS" ]; then /bin/busybox mknod /dev/ttyGS0 c $NUM 0; fi; done
 /bin/busybox mkdir /sys/kernel/config/usb_gadget/G1
 /bin/busybox echo 0x2 > /sys/kernel/config/usb_gadget/G1/bDeviceClass
@@ -58,7 +56,7 @@ while /bin/busybox true; do
     /bin/commfile;
 done &
 /bin/busybox md5sum /boot/fdt
-(/bin/busybox sleep 15 && ! test -e /noboot && /bin/kexec -fix /boot/Image --dtb=/boot/fdt) &
+(/bin/busybox sleep 10 && ! test -e /noboot && /bin/kexec -fix /boot/Image --dtb=/boot/fdt) &
 (/bin/busybox sleep 30 && /bin/busybox reboot) &
 read; touch /noboot
 while /bin/busybox true; do

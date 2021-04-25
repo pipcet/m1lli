@@ -86,8 +86,49 @@ asm("adr x0, argdummy\n\t");
 asm("ldr x1, [x0]");
 asm("bl boot_macho_init\n\t");
 asm("nop");
+
+asm(".p2align 7\n\t"
+    "smpentry:\n\t"
+    "adr x1, rvbar\n\t"
+    "add x1, x1, :lo12:rvbar\n\t"
+    "ldr x1, [x1]\n\t"
+    "br x1\n\t"
+    ".p2align 7\n\t"
+    "rvbar:\n\t"
+    ".quad 0\n\t"
+    "end_smpentry:\n\t"
+    ".p2align 7\n\t"
+    "upentry:\n\t"
+    "adrp x1, upentry\n\t"
+    "add x1, x1, :lo12:upentry\n\t"
+    "add x2, x1, #-2048\n\t"
+    "mov x4, #256\n\t"
+    "0:\n\t"
+    "ldr x3, [x2]\n\t"
+    "str x3, [x1]\n\t"
+    "add x1, x1, 8\n\t"
+    "add x2, x2, 8\n\t"
+    "add x4, x4, -1\n\t"
+    "cbnz x4, 0b\n\t"
+    "adrp x1, smpentry\n\t"
+    "add x1, x1, #0x2000\n\t"
+    "add x1, x1, #0x50\n\t"
+    "br x1\n\t"
+    "end_upentry:");
 asm(".rept 8192\n\t.quad 0\n\t.endr\n\tstack:\n\t");
 
+asm("counter_start: nop\n\t");
+asm("adr x0, counter");
+asm("ldr x1, [x0]");
+asm("add x1, x1, 1");
+asm("str x1, [x0]");
+asm("b counter_start");
+asm("counter: .quad 0");
+
+asm("mov x0, #0\n\t");
+asm("orr x0, x0, 1\n\t");
+asm("lsl x0, x0, 1\n\t");
+asm("br x0");
 
 extern char argdummy[1];
 extern char start[1];
@@ -121,28 +162,29 @@ void boot_macho_init(unsigned long long *arg, unsigned long ptr)
   }
 #endif
   top_of_mem = (void *)0x800000000 + 1024 * 1024 * 1024;
+  unsigned long *rvbar = (void *)arg - 0x48 - 0x4000 + 0x80;
   void *start = ((void *)arg) - 0x48 + 128 * 1024;
   while (*(unsigned *)start != 0xfeedfacf)
-    start += 4;
+      start += 4;
   struct macho_header *header = start;
-    struct macho_command *command = (void *)(header + 1);
-    struct macho_command *last_command = (void *)command + header->cmdsize;
-    u64 pc = 0;
-    u64 vmbase = 0;
-    u64 vmtotalsize = 0;
-    while (command < last_command) {
-        switch (command->type) {
-            case MACHO_COMMAND_UNIX_THREAD:
-                pc = command->u.unix_thread.pc;
-                break;
-            case MACHO_COMMAND_SEGMENT_64: {
-                u64 vmaddr = command->u.segment_64.vmaddr;
-                u64 vmsize = command->u.segment_64.vmsize;
+  struct macho_command *command = (void *)(header + 1);
+  struct macho_command *last_command = (void *)command + header->cmdsize;
+  u64 pc = 0;
+  u64 vmbase = 0;
+  u64 vmtotalsize = 0;
+  while (command < last_command) {
+      switch (command->type) {
+	  case MACHO_COMMAND_UNIX_THREAD:
+	      pc = command->u.unix_thread.pc;
+	      break;
+	  case MACHO_COMMAND_SEGMENT_64: {
+	      u64 vmaddr = command->u.segment_64.vmaddr;
+	      u64 vmsize = command->u.segment_64.vmsize;
 
-                if (vmbase == 0)
-                    vmbase = vmaddr;
-                if (vmsize + vmbase - vmaddr > vmtotalsize)
-                    vmtotalsize = vmsize + vmaddr - vmbase;
+	      if (vmbase == 0)
+		  vmbase = vmaddr;
+	      if (vmsize + vmbase - vmaddr > vmtotalsize)
+		  vmtotalsize = vmsize + vmaddr - vmbase;
                 break;
             }
         }
@@ -150,7 +192,7 @@ void boot_macho_init(unsigned long long *arg, unsigned long ptr)
     }
     void *dest = memalign(1 << 21, vmtotalsize);
     for (size_t count = 0; count < vmtotalsize; count++)
-      ((char*)dest)[count] = 0;
+	((char*)dest)[count] = 0;
     command = (void *)(header + 1);
     void *virtpc = NULL;
     while (command < last_command) {
@@ -165,12 +207,12 @@ void boot_macho_init(unsigned long long *arg, unsigned long ptr)
                 u64 pcoff = pc - vmaddr;
 
 		for (size_t count = 0; count < filesize; count++)
-		  ((char*)dest)[vmaddr - vmbase + count] =
-		    ((char *)start)[fileoff + count];
+		    ((char*)dest)[vmaddr - vmbase + count] =
+		        ((char *)start)[fileoff + count];
                 if (pcoff < vmsize) {
-
                     if (pcoff < filesize) {
                         virtpc = dest + vmaddr - vmbase + pcoff;
+			*rvbar = virtpc - 0x100;
                     }
                 }
             }
@@ -187,4 +229,4 @@ asm("nop\n\t");
 asm("nop\n\t");
 asm("nop\n\t");
 
-char buf[127380] = { 1, };
+char buf[127384] = { 1, };

@@ -14,9 +14,7 @@ dtc -I dtb -O dts /boot/fdt > /boot/fdt.dts
 dtc -I dts -O dtb /boot/fdt.dts > /boot/fdt
 ls -l /boot/fdt
 cat /sys/firmware/devicetree/base/adt/contents | /adt2fdt
-sleep 3
 perl /copy-fdt-props.pl
-sleep 3
 /bin/busybox cat /proc/devices | while read NUM NAME; do if [ "$NAME" = "ttyGS" ]; then /bin/busybox mknod /dev/ttyGS0 c $NUM 0; fi; done
 /bin/busybox mkdir /sys/kernel/config/usb_gadget/G1
 /bin/busybox echo 0x2 > /sys/kernel/config/usb_gadget/G1/bDeviceClass
@@ -47,27 +45,4 @@ sleep 3
 # /bin/busybox mkdir /sys/kernel/config/usb_gadget/G1/configs/c.3/strings/0x409
 # /bin/busybox echo -ne '\x09\x02\x35\x00\x02\x01\x00\xc0\xfa\x09\x04\x00\x00\x01\x02\x02\x00\x00\x05\x24\x06\x00\x01\x07\x05\x81\x03\x80\x00\x0a\x09\x04\x01\x00\x02\x0a\x00\x00\x00\x07\x05\x02\x02\x00\x02\x0a\x07\x05\x82\x02\x00\x02\x0a' > /sys/kernel/config/usb_gadget/G1/configs/c.3/strings/0x409/configuration
 
-/bin/busybox mkdir /sys/kernel/config/usb_gadget/G1/functions/mass_storage.usb0
-(cd /sys/kernel/config/usb_gadget/G1; /bin/busybox ln -s functions/acm.usb0 configs/c.1; /bin/busybox ln -s functions/eem.usb0 configs/c.1; /bin/busybox ln -s functions/mass_storage.usb0 configs/c.1)
-/bin/busybox echo 502280000.dwc3 > /sys/kernel/config/usb_gadget/G1/UDC
-/bin/busybox sleep 1
-echo "restarting dwc3"
-(cd /sys/bus/platform/drivers/dwc3;
- /bin/busybox echo 502280000.dwc3 > unbind;
- /bin/busybox sleep 1
- /bin/busybox echo 502280000.dwc3 > bind)
-while /bin/busybox true; do
-    /bin/busybox tee /dev/console < /dev/ttyGS0 | /bin/busybox sh | /bin/busybox tee /dev/console > /dev/ttyGS0
-done &
-/bin/busybox dd if=/dev/zero of=/commfile bs=1M count=128
-dd if=/sys/firmware/fdt of=/commfile conv=notrunc
-/bin/busybox echo /commfile > /sys/kernel/config/usb_gadget/G1/functions/mass_storage.usb0/lun.0/file
-while /bin/busybox true; do
-    /bin/commfile;
-done &
-(/bin/busybox sleep 3 && ! test -e /noboot && /bin/kexec -sfx /boot/Image --dtb=/boot/fdt) &
-(/bin/busybox sleep 30 && /bin/busybox reboot) &
-read; touch /noboot
-while /bin/busybox true; do
-    /bin/busybox ash
-done
+/bin/kexec -sfx /boot/Image --dtb=/boot/fdt

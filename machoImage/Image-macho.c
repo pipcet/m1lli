@@ -3,6 +3,45 @@
 #include <stdint.h>
 #include <string.h>
 
+extern char smpentry[1];
+extern char end_smpentry[1];
+extern char upentry[1];
+extern char end_upentry[1];
+
+uint32_t code_at_upentry[] = {
+  0x90000001,
+  0xd1200022,
+  0xd2802004,
+  0xf9400043,
+  0xf9000023,
+  0x91002021,
+  0x91002042,
+  0xd1000484,
+  0xb5ffff64,
+  0x90000001,
+  0x91400821,
+  0x91014021,
+  0xd61f0020,
+};
+
+uint32_t code_at_smpentry[] = {
+  0x58000141,
+  0x52a00200,
+  0xb9001420,
+  0x52800000,
+  0xb9001020,
+  0x52800080,
+  0xb9001c20,
+  0x14000000,
+  0x35200000,
+  0x00000002,
+  0x3d2b0000,
+  0x00000002,
+  0x10000401,
+  0xf9400021,
+  0xd61f0020,
+};
+
 int main(int argc, char **argv)
 {
   if (argc != 3) {
@@ -141,15 +180,15 @@ int main(int argc, char **argv)
   hdr->segment.initprot = 7;
   hdr->segment.vmaddr = 0xfffffe0007040000;
   hdr->segment.vmsize = size;
-  hdr->segment.fileoff = 16384;
-  hdr->segment.filesize = size;
+  hdr->segment.fileoff = 0;
+  hdr->segment.filesize = 16384 + size;
   hdr->segment.maxprot = 7;
   hdr->segment.nsects = 1;
   sprintf(hdr->segment.section.sectname, "__text");
   sprintf(hdr->segment.section.segname, "__TEXT");
   hdr->segment.section.addr = 0xfffffe0007040000;
-  hdr->segment.section.size = size;
-  hdr->segment.section.offset = 16384;
+  hdr->segment.section.size = 16384 + size;
+  hdr->segment.section.offset = 0;
 #define S_ATTR_SOME_INSTRUCTIONS 0x400
   hdr->segment.section.flags = S_ATTR_SOME_INSTRUCTIONS;
   hdr->segment.section.align = 16;
@@ -159,8 +198,10 @@ int main(int argc, char **argv)
 #define ARM_THREAD_STATE64 6
   hdr->thread.flavor = ARM_THREAD_STATE64;
   hdr->thread.count = 68;
-  hdr->thread.pc = 0xfffffe0007040050;
+  hdr->thread.pc = 0xfffffe0007042100;
   void *image = buf + 16384;
+  memcpy(buf + 0x2000, code_at_smpentry, sizeof(code_at_smpentry));
+  memcpy(buf + 0x2100, code_at_upentry, sizeof(code_at_upentry));
   fread(image, 16384 + size, 1, f);
   fclose(f);
   f = fopen(argv[2], "w");
