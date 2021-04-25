@@ -18,6 +18,7 @@ int main(int argc, char **argv)
 
   fseek(f, 0, SEEK_END);
   size_t size = ftell(f);
+  fseek(f, 0, SEEK_SET);
   size += (1<<21) - 1;
   size &= (-1<<21);
   void *buf = malloc(16384 + size);
@@ -94,25 +95,27 @@ int main(int argc, char **argv)
   hdr->segment.cmd = LC_SEGMENT_64;
   hdr->segment.cmdsize = sizeof(hdr->segment);
   hdr->segment.maxprot = 7;
-  hdr->segment.maxprot = 7;
-  hdr->segment.vmaddr = 0xffffe00000000000;
+  hdr->segment.vmaddr = 0xffffe00000004000;
   hdr->segment.vmsize = size;
   hdr->segment.fileoff = 16384;
   hdr->segment.filesize = size;
   hdr->segment.maxprot = 7;
   hdr->segment.nsects = 1;
-  sprintf(hdr->segment.section.sectname, "KERNEL");
+  sprintf(hdr->segment.section.sectname, "__text");
   sprintf(hdr->segment.section.segname, "__TEXT");
-  hdr->segment.section.addr = 0xffffe00000000000;
+  hdr->segment.section.addr = 0xffffe00000004000;
   hdr->segment.section.size = size;
   hdr->segment.section.offset = 16384;
+#define S_ATTR_SOME_INSTRUCTIONS 0x400
+  hdr->segment.section.flags = S_ATTR_SOME_INSTRUCTIONS;
+  hdr->segment.section.align = 21;
 #define LC_UNIXTHREAD   0x5
   hdr->thread.cmd = LC_UNIXTHREAD;
   hdr->thread.cmdsize = sizeof(hdr->thread);
 #define ARM_THREAD_STATE64 6
   hdr->thread.flavor = ARM_THREAD_STATE64;
   hdr->thread.count = 68;
-  hdr->thread.pc = 0xffffe00000000050;
+  hdr->thread.pc = 0xffffe00000004050;
   void *image = buf + 16384;
   fread(image, 16384 + size, 1, f);
   fclose(f);
@@ -120,5 +123,6 @@ int main(int argc, char **argv)
   if (!f)
     goto error;
   fwrite(buf, 1, 16384 + size, f);
+  fclose(f);
   return 0;
 }
