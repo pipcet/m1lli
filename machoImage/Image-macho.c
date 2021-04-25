@@ -73,7 +73,7 @@ int main(int argc, char **argv)
       uint64_t sp;
       uint64_t pc;
       uint32_t cpsr;
-      uint32_t _pad;
+      uint32_t _pad; /* or flags? */
     } thread;
   } *hdr = buf;
   memset(hdr, 0, sizeof *hdr);
