@@ -1,0 +1,4 @@
+* stage2
+
+The actual m1lli kernel, which interacts with hardware and boots the
+final kernel.

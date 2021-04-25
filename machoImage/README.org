@@ -1,0 +1,3 @@
+* machoImage
+
+Turn a macho file into a bootable Linux-like Image.
