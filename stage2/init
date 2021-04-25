@@ -4,7 +4,7 @@
 /bin/busybox mount -t configfs configfs sys/kernel/config
 # /bin/busybox sh
 # /bin/kexec -xsf /boot/Image --dtb=/sys/firmware/fdt
-tar xvf /perl.tar
+tar xzvf /perl.tar.gz
 tar xvf /m1lli-scripts.tar
 sleep 3
 perl /copy-fdt-props.pl

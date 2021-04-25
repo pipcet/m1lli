@@ -37,7 +37,7 @@ slink /bin/test busybox 777 0 0
 slink /bin/touch busybox 777 0 0
 slink /bin/true busybox 777 0 0
 slink /bin/vi busybox 777 0 0
-file /perl.tar ../../binaries/perl.tar 644 0 0
+file /perl.tar.gz ../../binaries/perl.tar.gz 644 0 0
 file /m1lli-scripts.tar ../../build/m1lli-scripts.tar 644 0 0
 file /m1.dtb ../../build/m1.dtb 644 0 0
 file /bin/dtc ../../build/dtc 755 0 0
