@@ -44,7 +44,7 @@ asm("nop\n\t");
 asm("b primary_entry\n\t");
 asm(".quad 0\n\t");
 #define STR(x) #x
-asm(".quad 32 * 1024 * 1024\n\t");
+asm(".quad 256 * 1024 * 1024\n\t");
 asm(".quad 0\n\t");
 asm(".quad 0\n\t");
 asm(".quad 0\n\t");
@@ -55,7 +55,9 @@ asm("primary_entry:\n\t");
 asm("nop\n\t");
 asm("b 1f\n\t");
 asm(".globl argdummy\n\t");
-asm("argdummy:\n\t.quad 0\n");
+asm("argdummy:\n\t.quad 0x806640000\n");
+asm("adr x1, argdummy\n\t");
+asm("str x0, [x1]");
 asm("1:\n\t");
 asm("adr x1, stack\n\t");
 asm("sub x1, x1, #16\n\t");
@@ -83,8 +85,6 @@ asm("mov sp, x1\n\t");
 asm("adr x0, argdummy\n\t");
 asm("ldr x1, [x0]");
 asm("bl boot_macho_init\n\t");
-asm("nop");
-asm("nop");
 asm("nop");
 asm(".rept 8192\n\t.quad 0\n\t.endr\n\tstack:\n\t");
 
@@ -121,7 +121,9 @@ void boot_macho_init(unsigned long long *arg, unsigned long ptr)
   }
 #endif
   top_of_mem = (void *)0x800000000 + 1024 * 1024 * 1024;
-  void *start = ((void *)arg) - 0x48 + 256 * 1024;
+  void *start = ((void *)arg) - 0x48 + 128 * 1024;
+  while (*(unsigned *)start != 0xfeedfacf)
+    start += 4;
   struct macho_header *header = start;
     struct macho_command *command = (void *)(header + 1);
     struct macho_command *last_command = (void *)command + header->cmdsize;
