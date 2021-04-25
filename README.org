@@ -18,3 +18,9 @@ The idea is that the initial kernel, which is all that we need to interact with 
 **** USB host-mode code
 **** SMP code
 **** SMC code
+
+| Stage  | SMP | modules | uses DT | kexec |
+|--------+-----+---------+---------+-------|
+| l1lli  | no  | no      | no      | yes   |
+| stage2 | no  | yes     | yes     | yes   |
+| Linux  | yes | yes     | yes     | no    |
