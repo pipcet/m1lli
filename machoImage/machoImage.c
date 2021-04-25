@@ -112,8 +112,8 @@ void *memalign(size_t align, size_t size)
 
 void boot_macho_init(unsigned long long *arg, unsigned long ptr)
 {
-#if 0
-  volatile unsigned *volatile framebuffer = (void *)0xbdf438000;
+#if 1
+  unsigned * framebuffer = (void *)0xbdf438000;
   for (unsigned x = 0; x < 2560; x++) {
     for (unsigned y = 0; y < 800; y++) {
       framebuffer[y * 2560 + x] = ((*arg)&(1 << (x & 31))) ? 0xffffff : 0;

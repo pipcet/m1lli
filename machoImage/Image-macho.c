@@ -62,6 +62,31 @@ int main(int argc, char **argv)
 	uint32_t flags;
 	uint32_t reserved[3];
       } section;
+    } header_segment;
+    struct {
+      uint32_t cmd;
+      uint32_t cmdsize;
+      char segname[16];
+      uint64_t vmaddr;
+      uint64_t vmsize;
+      uint64_t fileoff;
+      uint64_t filesize;
+      uint32_t maxprot;
+      uint32_t initprot;
+      uint32_t nsects;
+      uint32_t flags;
+      struct {
+	char sectname[16];
+	char segname[16];
+	uint64_t addr;
+	uint64_t size;
+	uint32_t offset;
+	uint32_t align;
+	uint32_t reloff;
+	uint32_t nreloc;
+	uint32_t flags;
+	uint32_t reserved[3];
+      } section;
     } segment;
     struct {
       uint32_t cmd;
@@ -85,17 +110,36 @@ int main(int argc, char **argv)
   hdr->header.cpusubtype = CPU_SUBTYPE_ARM64;
 #define MH_KERNEL       12
   hdr->header.filetype = MH_KERNEL;
-  hdr->header.ncmds = 2;
-  hdr->header.sizeofcmds = sizeof(hdr->segment) + sizeof(hdr->thread);
+  hdr->header.ncmds = 3;
+  hdr->header.sizeofcmds = sizeof(hdr->header_segment) + sizeof(hdr->segment) + sizeof(hdr->thread);
 #define MH_DYLDLINK     0x00000004
   hdr->header.flags = MH_DYLDLINK;
 
-  sprintf(hdr->segment.segname, "__TEXT");
 #define LC_SEGMENT_64   0x19
+  sprintf(hdr->header_segment.segname, "__HEADER");
+  hdr->header_segment.cmd = LC_SEGMENT_64;
+  hdr->header_segment.cmdsize = sizeof(hdr->segment);
+  hdr->header_segment.maxprot = 1;
+  hdr->header_segment.initprot = 1;
+  hdr->header_segment.vmaddr = 0xfffffe000703c000;
+  hdr->header_segment.vmsize = 16384;
+  hdr->header_segment.fileoff = 0;
+  hdr->header_segment.filesize = 16384;
+  hdr->header_segment.nsects = 1;
+  sprintf(hdr->header_segment.section.sectname, "__header");
+  sprintf(hdr->header_segment.section.segname, "__HEADER");
+  hdr->header_segment.section.addr = 0xfffffe000703c000;
+  hdr->header_segment.section.size = 16384;
+  hdr->header_segment.section.offset = 0;
+#define S_ATTR_SOME_INSTRUCTIONS 0x400
+  hdr->header_segment.section.flags = 0;
+  hdr->header_segment.section.align = 14;
+  sprintf(hdr->segment.segname, "__TEXT");
   hdr->segment.cmd = LC_SEGMENT_64;
   hdr->segment.cmdsize = sizeof(hdr->segment);
   hdr->segment.maxprot = 7;
-  hdr->segment.vmaddr = 0xffffe00000004000;
+  hdr->segment.initprot = 7;
+  hdr->segment.vmaddr = 0xfffffe0007040000;
   hdr->segment.vmsize = size;
   hdr->segment.fileoff = 16384;
   hdr->segment.filesize = size;
@@ -103,19 +147,19 @@ int main(int argc, char **argv)
   hdr->segment.nsects = 1;
   sprintf(hdr->segment.section.sectname, "__text");
   sprintf(hdr->segment.section.segname, "__TEXT");
-  hdr->segment.section.addr = 0xffffe00000004000;
+  hdr->segment.section.addr = 0xfffffe0007040000;
   hdr->segment.section.size = size;
   hdr->segment.section.offset = 16384;
 #define S_ATTR_SOME_INSTRUCTIONS 0x400
   hdr->segment.section.flags = S_ATTR_SOME_INSTRUCTIONS;
-  hdr->segment.section.align = 21;
+  hdr->segment.section.align = 16;
 #define LC_UNIXTHREAD   0x5
   hdr->thread.cmd = LC_UNIXTHREAD;
   hdr->thread.cmdsize = sizeof(hdr->thread);
 #define ARM_THREAD_STATE64 6
   hdr->thread.flavor = ARM_THREAD_STATE64;
   hdr->thread.count = 68;
-  hdr->thread.pc = 0xffffe00000004050;
+  hdr->thread.pc = 0xfffffe0007040050;
   void *image = buf + 16384;
   fread(image, 16384 + size, 1, f);
   fclose(f);
