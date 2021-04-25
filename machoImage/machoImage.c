@@ -148,7 +148,7 @@ void boot_macho_init(unsigned long long *arg, unsigned long ptr)
         }
         command = (void *)command + command->size;
     }
-    void *dest = memalign(0x10000, vmtotalsize);
+    void *dest = memalign(1 << 21, vmtotalsize);
     for (size_t count = 0; count < vmtotalsize; count++)
       ((char*)dest)[count] = 0;
     command = (void *)(header + 1);

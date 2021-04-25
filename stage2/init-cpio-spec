@@ -13,8 +13,8 @@ dir /boot 755 0 0
 slink /bin/sh busybox 777 0 0
 file /bin/busybox ../../build/busybox 755 0 0
 file /bin/kexec ../../build/kexec 755 0 0
-file /boot/Image ../../build/Image 644 0 0
-file /init ../../misc/init 755 0 0
+file /boot/Image ../../build/linux.image 644 0 0
+file /init ../../m1lli/stage2/init 755 0 0
 file /m1lli ../../build/m1lli 755 0 0
 file /bin/commfile ../../build/commfile 755 0 0
 slink /bin/[ busybox 777 0 0
