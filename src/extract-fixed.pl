@@ -9,17 +9,6 @@ sub setup_tunable {
     setup("tunable", $_[0]);
 }
 
-sub setup_adt {
-    setup("adt", $_[0]);
-}
-
-sub setup_framebuffer {
-    setup("framebuffer", $_[0]);
-}
-
-sub setup_hwaddr {}
-sub setup_chosen {}
-
 for my $acio ("soc.acio1\@501f00000") {
     setup_tunable("${acio}.thunderbolt-drom");
     setup_tunable("${acio}.tunable-fw_int_ctl_management");
@@ -90,8 +79,8 @@ for my $usb_drd ("soc.usb_drd1\@502280000") {
     setup_tunable("${usb_drd}.tunable-ATC0AXI2AF");
 }
 
-setup_adt("adt.contents");
-setup_adt("reserved-memory.adt\@800000000");
+setup("adt", "adt.contents");
+setup("adt", "reserved-memory.adt\@800000000");
 setup("hwaddr", "chosen.hwaddr-wlan0");
 setup("hwaddr", "chosen.hwaddr-bt0");
 setup("chosen", "chosen.bootargs");
