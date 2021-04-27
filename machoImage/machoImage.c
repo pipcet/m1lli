@@ -99,6 +99,7 @@ asm(".p2align 7\n\t"
     "end_smpentry:\n\t"
     ".p2align 7\n\t"
     "upentry:\n\t"
+#if 0
     "adrp x1, upentry\n\t"
     "add x1, x1, :lo12:upentry\n\t"
     "add x2, x1, #-2048\n\t"
@@ -110,12 +111,15 @@ asm(".p2align 7\n\t"
     "add x2, x2, 8\n\t"
     "add x4, x4, -1\n\t"
     "cbnz x4, 0b\n\t"
-    "adrp x1, smpentry\n\t"
+#endif
+    "adr x1, smpentry\n\t"
     "add x1, x1, #0x2000\n\t"
-    "add x1, x1, #0x50\n\t"
+    "add x1, x1, -0x104\n\t"
     "br x1\n\t"
     "end_upentry:");
 asm(".rept 8192\n\t.quad 0\n\t.endr\n\tstack:\n\t");
+asm(".p2align 12\n\t.rept 0xe38\n\t.byte 0\n\t.endr");
+asm("fdt: .rept 0x1c4\n\t.ascii \"x\"\n\t.endr\n\tadr x0, fdt");
 
 asm("counter_start: nop\n\t");
 asm("adr x0, counter");
@@ -151,13 +155,87 @@ void *memalign(size_t align, size_t size)
   return ret;
 }
 
+unsigned int bswap(unsigned int x)
+{
+  return __builtin_bswap32(x);
+}
+
+unsigned long bswap64(unsigned long x)
+{
+  return __builtin_bswap64(x);
+}
+
+#define fdt32(x) bswap(x)
+#define fdt64(x) bswap((x) >> 32), bswap((x) & 0xffffffff)
+
+inline void build_dt(unsigned int *dt, unsigned long memoff0,
+		     unsigned long memsize0)
+{
+  /* echo '/dts-v1/; / { #address-cells=<2>; #size-cells=<2>; memory { reg = <0x12345678 0x9abcdef0 0x0fedcba9 0x87654321>;};};' | dtc -I dts -O dtb | od -tx4 --width=1 -Anone -v | sed -e 's/ \(.*\)/\tfdt32(0x\1),/' */
+  unsigned int templ[] = {
+	fdt32(0xedfe0dd0),
+	fdt32(0xb3000000),
+	fdt32(0x38000000),
+	fdt32(0x94000000),
+	fdt32(0x28000000),
+	fdt32(0x11000000),
+	fdt32(0x10000000),
+	fdt32(0x00000000),
+	fdt32(0x1f000000),
+	fdt32(0x5c000000),
+	fdt32(0x00000000),
+	fdt32(0x00000000),
+	fdt32(0x00000000),
+	fdt32(0x00000000),
+	fdt32(0x01000000),
+	fdt32(0x00000000),
+	fdt32(0x03000000),
+	fdt32(0x04000000),
+	fdt32(0x00000000),
+	fdt32(0x02000000),
+	fdt32(0x03000000),
+	fdt32(0x04000000),
+	fdt32(0x0f000000),
+	fdt32(0x02000000),
+	fdt32(0x01000000),
+	fdt32(0x6f6d656d),
+	fdt32(0x00007972),
+	fdt32(0x03000000),
+	fdt32(0x10000000),
+	fdt32(0x1b000000),
+	fdt64(memoff0),
+	fdt64(memsize0),
+	fdt32(0x02000000),
+	fdt32(0x02000000),
+	fdt32(0x09000000),
+	fdt32(0x64646123),
+	fdt32(0x73736572),
+	fdt32(0x6c65632d),
+	fdt32(0x2300736c),
+	fdt32(0x657a6973),
+	fdt32(0x6c65632d),
+	fdt32(0x7200736c),
+	fdt32(0x00006765),
+  };
+
+  __builtin_memcpy(dt, templ, sizeof(templ));
+}
+
+void mangle_x0(unsigned long x0, unsigned long x1)
+{
+  void *buf = x1;
+}
+
+asm("nop\n\tnop\n\tmov x0, #0\n\tb .\n\t");
+
+
 void boot_macho_init(unsigned long long *arg, unsigned long ptr)
 {
-#if 1
+#if 0
   unsigned * framebuffer = (void *)0xbdf438000;
   for (unsigned x = 0; x < 2560; x++) {
     for (unsigned y = 0; y < 800; y++) {
-      framebuffer[y * 2560 + x] = ((*arg)&(1 << (x & 31))) ? 0xffffff : 0;
+      framebuffer[y * 2560 + x] = y; //((*arg)&(1 << (x & 31))) ? 0xffffff : 0;
     }
   }
 #endif
@@ -172,6 +250,7 @@ void boot_macho_init(unsigned long long *arg, unsigned long ptr)
   u64 pc = 0;
   u64 vmbase = 0;
   u64 vmtotalsize = 0;
+  u64 dtsize = 2 * 1024 * 1024;
   while (command < last_command) {
       switch (command->type) {
 	  case MACHO_COMMAND_UNIX_THREAD:
@@ -189,10 +268,16 @@ void boot_macho_init(unsigned long long *arg, unsigned long ptr)
             }
         }
         command = (void *)command + command->size;
-    }
-    void *dest = memalign(1 << 21, vmtotalsize);
-    for (size_t count = 0; count < vmtotalsize; count++)
-	((char*)dest)[count] = 0;
+  }
+  vmtotalsize += 16383;
+  vmtotalsize &= -16384L;
+  void *dest = memalign(1 << 21, vmtotalsize + dtsize);
+  void *dt = dest + vmtotalsize;
+  *(unsigned int *)dt = 0;
+  *((unsigned int *)dt + 1) = dtsize;
+  *((unsigned long *)dt + 1) = ptr;
+  for (size_t count = 0; count < vmtotalsize; count++)
+    ((char*)dest)[count] = 0;
     command = (void *)(header + 1);
     void *virtpc = NULL;
     while (command < last_command) {
@@ -219,7 +304,7 @@ void boot_macho_init(unsigned long long *arg, unsigned long ptr)
         }
         command = (void *)command + command->size;
     }
-    ((void (*)(unsigned long))virtpc)(ptr);
+    ((void (*)(unsigned long))virtpc)((unsigned long)dt);
 }
 
 asm("nop\n\t");
@@ -229,4 +314,4 @@ asm("nop\n\t");
 asm("nop\n\t");
 asm("nop\n\t");
 
-char buf[127384] = { 1, };
+char buf[118808] = { 1, };

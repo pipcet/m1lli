@@ -3,44 +3,26 @@
 #include <stdint.h>
 #include <string.h>
 
-extern char smpentry[1];
-extern char end_smpentry[1];
-extern char upentry[1];
-extern char end_upentry[1];
+static
+#include "../asm-snippets/remap-to-physical.S.elf.bin.h"
+;
 
-uint32_t code_at_upentry[] = {
-  0x90000001,
-  0xd1200022,
-  0xd2802004,
-  0xf9400043,
-  0xf9000023,
-  0x91002021,
-  0x91002042,
-  0xd1000484,
-  0xb5ffff64,
-  0x90000001,
-  0x91400821,
-  0x91014021,
-  0xd61f0020,
-};
+static
+#include "../asm-snippets/perform-alignment-2.S.elf.bin.h"
+;
 
-uint32_t code_at_smpentry[] = {
-  0x58000141,
-  0x52a00200,
-  0xb9001420,
-  0x52800000,
-  0xb9001020,
-  0x52800080,
-  0xb9001c20,
-  0x14000000,
-  0x35200000,
-  0x00000002,
-  0x3d2b0000,
-  0x00000002,
-  0x10000401,
-  0xf9400021,
-  0xd61f0020,
-};
+static
+#include "../asm-snippets/jump-to-start-of-page.S.elf.bin.h"
+;
+
+static
+#include "../asm-snippets/bring-up-phys.S.elf.bin.h"
+;
+
+static
+#include "../asm-snippets/enable-all-clocks.S.elf.bin.h"
+;
+
 
 int main(int argc, char **argv)
 {
@@ -160,14 +142,14 @@ int main(int argc, char **argv)
   hdr->header_segment.cmdsize = sizeof(hdr->segment);
   hdr->header_segment.maxprot = 1;
   hdr->header_segment.initprot = 1;
-  hdr->header_segment.vmaddr = 0xfffffe000703c000;
+  hdr->header_segment.vmaddr = 0xfffffe0006ffc000;
   hdr->header_segment.vmsize = 16384;
   hdr->header_segment.fileoff = 0;
   hdr->header_segment.filesize = 16384;
   hdr->header_segment.nsects = 1;
   sprintf(hdr->header_segment.section.sectname, "__header");
   sprintf(hdr->header_segment.section.segname, "__HEADER");
-  hdr->header_segment.section.addr = 0xfffffe000703c000;
+  hdr->header_segment.section.addr = 0xfffffe0006ffc000;
   hdr->header_segment.section.size = 16384;
   hdr->header_segment.section.offset = 0;
 #define S_ATTR_SOME_INSTRUCTIONS 0x400
@@ -178,31 +160,51 @@ int main(int argc, char **argv)
   hdr->segment.cmdsize = sizeof(hdr->segment);
   hdr->segment.maxprot = 7;
   hdr->segment.initprot = 7;
-  hdr->segment.vmaddr = 0xfffffe0007040000;
+  hdr->segment.vmaddr = 0xfffffe0007000000;
   hdr->segment.vmsize = size;
-  hdr->segment.fileoff = 0;
-  hdr->segment.filesize = 16384 + size;
+  hdr->segment.fileoff = 16384 + 0;
+  hdr->segment.filesize = size;
   hdr->segment.maxprot = 7;
   hdr->segment.nsects = 1;
   sprintf(hdr->segment.section.sectname, "__text");
   sprintf(hdr->segment.section.segname, "__TEXT");
-  hdr->segment.section.addr = 0xfffffe0007040000;
-  hdr->segment.section.size = 16384 + size;
+  hdr->segment.section.addr = 0xfffffe0007000000;
+  hdr->segment.section.size = size;
   hdr->segment.section.offset = 0;
 #define S_ATTR_SOME_INSTRUCTIONS 0x400
   hdr->segment.section.flags = S_ATTR_SOME_INSTRUCTIONS;
-  hdr->segment.section.align = 16;
+  hdr->segment.section.align = 22;
 #define LC_UNIXTHREAD   0x5
   hdr->thread.cmd = LC_UNIXTHREAD;
   hdr->thread.cmdsize = sizeof(hdr->thread);
 #define ARM_THREAD_STATE64 6
   hdr->thread.flavor = ARM_THREAD_STATE64;
   hdr->thread.count = 68;
-  hdr->thread.pc = 0xfffffe0007042100;
+  hdr->thread.pc = 0xfffffe0007002000;
   void *image = buf + 16384;
-  memcpy(buf + 0x2000, code_at_smpentry, sizeof(code_at_smpentry));
-  memcpy(buf + 0x2100, code_at_upentry, sizeof(code_at_upentry));
-  fread(image, 16384 + size, 1, f);
+  for (uint32_t *p = buf + 0x2000; p < buf + 0x4000; p++)
+    *p = 0xd2800003;
+  uint32_t *p = buf + 0x2000;
+  //memmove(p, remap_to_physical, sizeof(remap_to_physical));
+  //p = (void *)p + sizeof(remap_to_physical);
+
+  //memcpy(buf + 0x4000 - sizeof(reboot_physical), reboot_physical,
+  //sizeof(reboot_physical));
+  //memcpy(buf + 0x4000 - sizeof(code_at_eoh), code_at_eoh,
+  //sizeof(code_at_eoh));
+  fread(image, size, 1, f);
+  p = image + 0x2000;
+  //memcpy(p, remap_to_physical, sizeof(remap_to_physical));
+  //p = (void *)p + sizeof(remap_to_physical);
+  memcpy(p, perform_alignment_2, sizeof(perform_alignment_2));
+  p = (void *)p + sizeof(perform_alignment_2);
+  memcpy(p, enable_all_clocks, sizeof(enable_all_clocks));
+  p = (void *)p + sizeof(enable_all_clocks);
+  memcpy(p, bring_up_phys, sizeof(bring_up_phys));
+  p = (void *)p + sizeof(bring_up_phys);
+  *p++ = 0xd2800000;
+  memcpy(p, jump_to_start_of_page, sizeof(jump_to_start_of_page));
+  p = (void *)p + sizeof(jump_to_start_of_page);
   fclose(f);
   f = fopen(argv[2], "w");
   if (!f)
