@@ -1,0 +1,4 @@
+	adr x1, .
+	and x1, x1, #0xffffffffffff0000
+	br x1
+	
