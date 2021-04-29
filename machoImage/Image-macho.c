@@ -23,6 +23,9 @@ static
 #include "../asm-snippets/enable-all-clocks.S.elf.bin.h"
 ;
 
+static
+#include "../asm-snippets/x8r8g8b8.c.S.elf.bin.h"
+;
 
 int main(int argc, char **argv)
 {
@@ -202,6 +205,8 @@ int main(int argc, char **argv)
   p = (void *)p + sizeof(enable_all_clocks);
   memcpy(p, bring_up_phys, sizeof(bring_up_phys));
   p = (void *)p + sizeof(bring_up_phys);
+  memcpy(p, x8r8g8b8, sizeof(x8r8g8b8));
+  p = (void *)p + sizeof(x8r8g8b8);
   *p++ = 0xd2800000;
   memcpy(p, jump_to_start_of_page, sizeof(jump_to_start_of_page));
   p = (void *)p + sizeof(jump_to_start_of_page);
