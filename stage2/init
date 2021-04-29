@@ -56,7 +56,7 @@ while /bin/busybox true; do
     /bin/commfile;
 done &
 /bin/busybox md5sum /boot/fdt
-(/bin/busybox sleep 10 && ! test -e /noboot && /bin/kexec -fix /boot/Image --dtb=/boot/fdt) &
+(/bin/busybox sleep 1m && ! test -e /noboot && /bin/kexec -fix /boot/Image --dtb=/boot/fdt) &
 (/bin/busybox sleep 30 && /bin/busybox reboot) &
 read; touch /noboot
 while /bin/busybox true; do
