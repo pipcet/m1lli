@@ -33,6 +33,8 @@ static
 
 #define PRELUDE_SIZE 16384
 #define IMAGE_PADDING (1 << 21)
+#define VIRT_BASE 0xfffffe0008000000
+#define HDR_SIZE 0x2000
 
 int main(int argc, char **argv)
 {
@@ -153,7 +155,6 @@ int main(int argc, char **argv)
   hdr->header_segment.cmdsize = sizeof(hdr->segment);
   hdr->header_segment.maxprot = 1;
   hdr->header_segment.initprot = 1;
-#define VIRT_BASE 0xfffffe0008000000
   hdr->header_segment.vmaddr = VIRT_BASE - prelude_size;
   hdr->header_segment.vmsize = prelude_size;
   hdr->header_segment.fileoff = 0;
@@ -172,8 +173,7 @@ int main(int argc, char **argv)
   hdr->segment.cmdsize = sizeof(hdr->segment);
   hdr->segment.maxprot = 7;
   hdr->segment.initprot = 7;
-#define VIRT_ADDR 0xfffffe0007040000
-  hdr->segment.vmaddr = VIRT_ADDR;
+  hdr->segment.vmaddr = VIRT_BASE;
   hdr->segment.vmsize = image_size;
   hdr->segment.fileoff = prelude_size;
   hdr->segment.filesize = image_size;
@@ -181,7 +181,7 @@ int main(int argc, char **argv)
   hdr->segment.nsects = 1;
   sprintf(hdr->segment.section.sectname, "__text");
   sprintf(hdr->segment.section.segname, "__TEXT");
-  hdr->segment.section.addr = VIRT_ADDR;
+  hdr->segment.section.addr = VIRT_BASE;
   hdr->segment.section.size = image_size;
   hdr->segment.section.offset = 0;
 #define S_ATTR_SOME_INSTRUCTIONS 0x400
@@ -193,12 +193,13 @@ int main(int argc, char **argv)
 #define ARM_THREAD_STATE64 6
   hdr->thread.flavor = ARM_THREAD_STATE64;
   hdr->thread.count = 68;
-  hdr->thread.pc = VIRT_ADDR + 0x2000;
+  hdr->thread.pc = VIRT_BASE + HDR_SIZE;
   void *image = buf + prelude_size;
 #define MOV_X0_0 0xd2800003
-  for (uint32_t *p = buf + 0x2000; (void *)p < buf + prelude_size; p++)
+  assert(HDR_SIZE >= sizeof(*hdr));
+  for (uint32_t *p = buf + HDR_SIZE; (void *)p < buf + prelude_size; p++)
     *p = MOV_X0_0;
-  uint32_t *p = buf + 0x2000;
+  uint32_t *p = buf + HDR_SIZE;
   //memmove(p, remap_to_physical, sizeof(remap_to_physical));
   //p = (void *)p + sizeof(remap_to_physical);
 
@@ -207,7 +208,7 @@ int main(int argc, char **argv)
   //memcpy(buf + 0x4000 - sizeof(code_at_eoh), code_at_eoh,
   //sizeof(code_at_eoh));
   fread(image, image_size, 1, f);
-  p = image + 0x2000;
+  p = image + HDR_SIZE;
   //memcpy(p, remap_to_physical, sizeof(remap_to_physical));
   //p = (void *)p + sizeof(remap_to_physical);
   memcpy(p, perform_alignment_2, sizeof(perform_alignment_2));
