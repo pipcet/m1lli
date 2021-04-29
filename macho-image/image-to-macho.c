@@ -1,18 +1,7 @@
+#include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 
 /* these strange includes are precompiled assembly snippets included
@@ -41,9 +30,6 @@ static
 static
 #include "../asm-snippets/x8r8g8b8.c.S.elf.bin.h"
 ;
-
-static
-#include "../asm-snippets/reboot-physical.S.elf.bin.h"
 
 #define PRELUDE_SIZE 16384
 #define IMAGE_PADDING (1 << 21)
@@ -189,35 +175,54 @@ int main(int argc, char **argv)
 #define VIRT_ADDR 0xfffffe0007040000
   hdr->segment.vmaddr = VIRT_ADDR;
   hdr->segment.vmsize = image_size;
-  hdr->segment.fileoff = 0;
-  hdr->segment.filesize = 16384 + image_size;
+  hdr->segment.fileoff = prelude_size;
+  hdr->segment.filesize = image_size;
   hdr->segment.maxprot = 7;
   hdr->segment.nsects = 1;
   sprintf(hdr->segment.section.sectname, "__text");
   sprintf(hdr->segment.section.segname, "__TEXT");
   hdr->segment.section.addr = VIRT_ADDR;
-  hdr->segment.section.size = prelude_size + image_size;
+  hdr->segment.section.size = image_size;
   hdr->segment.section.offset = 0;
 #define S_ATTR_SOME_INSTRUCTIONS 0x400
   hdr->segment.section.flags = S_ATTR_SOME_INSTRUCTIONS;
-  hdr->segment.section.alignment_hint = 16;
+  hdr->segment.section.alignment_hint = 22; /* not obeyed */
 #define LC_UNIXTHREAD   0x5
   hdr->thread.cmd = LC_UNIXTHREAD;
   hdr->thread.cmdsize = sizeof(hdr->thread);
 #define ARM_THREAD_STATE64 6
   hdr->thread.flavor = ARM_THREAD_STATE64;
   hdr->thread.count = 68;
-  hdr->thread.pc = VIRT_ADDR + 0x2100;
+  hdr->thread.pc = VIRT_ADDR + 0x2000;
   void *image = buf + prelude_size;
 #define MOV_X0_0 0xd2800003
-  for (uint32_t *p = buf + 0x2100; p < buf + prelude_size; p++)
+  for (uint32_t *p = buf + 0x2000; (void *)p < buf + prelude_size; p++)
     *p = MOV_X0_0;
-#if 1
-  memcpy(buf + prelude_size - sizeof(reboot_physical), reboot_physical,
-	 sizeof(reboot_physical));
-#endif
+  uint32_t *p = buf + 0x2000;
+  //memmove(p, remap_to_physical, sizeof(remap_to_physical));
+  //p = (void *)p + sizeof(remap_to_physical);
+
+  //memcpy(buf + 0x4000 - sizeof(reboot_physical), reboot_physical,
+  //sizeof(reboot_physical));
   //memcpy(buf + 0x4000 - sizeof(code_at_eoh), code_at_eoh,
   //sizeof(code_at_eoh));
+  fread(image, image_size, 1, f);
+  p = image + 0x2000;
+  //memcpy(p, remap_to_physical, sizeof(remap_to_physical));
+  //p = (void *)p + sizeof(remap_to_physical);
+  memcpy(p, perform_alignment_2, sizeof(perform_alignment_2));
+  p = (void *)p + sizeof(perform_alignment_2);
+  memcpy(p, enable_all_clocks, sizeof(enable_all_clocks));
+  p = (void *)p + sizeof(enable_all_clocks);
+  memcpy(p, bring_up_phys, sizeof(bring_up_phys));
+  p = (void *)p + sizeof(bring_up_phys);
+  memcpy(p, x8r8g8b8, sizeof(x8r8g8b8));
+  p = (void *)p + sizeof(x8r8g8b8);
+  *p++ = 0xd2800000;
+  memcpy(p, jump_to_start_of_page, sizeof(jump_to_start_of_page));
+  //memcpy(buf + 0x4000 - sizeof(code_at_eoh), code_at_eoh,
+  //sizeof(code_at_eoh));
+  assert ((void *)p <= buf + prelude_size);
   fread(image, prelude_size + image_size, 1, f);
   fclose(f);
   f = fopen(argv[2], "w");
