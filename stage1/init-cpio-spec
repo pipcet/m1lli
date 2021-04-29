@@ -13,8 +13,8 @@ dir /boot 755 0 0
 slink /bin/sh busybox 777 0 0
 file /bin/busybox ../../../build/busybox 755 0 0
 file /bin/kexec ../../../build/kexec 755 0 0
-file /boot/Image ../../../build/linux.image 644 0 0
-file /init ../../../m1lli/stage2/init 755 0 0
+file /boot/Image ../../../build/stage2.image 644 0 0
+file /init ../../../m1lli/stage1/init 755 0 0
 file /m1lli ../../../build/m1lli 755 0 0
 file /bin/commfile ../../../build/commfile 755 0 0
 slink /bin/[ busybox 777 0 0
@@ -41,4 +41,4 @@ file /perl.tar.gz ../../../binaries/perl.tar.gz 644 0 0
 file /m1lli-scripts.tar ../../../build/m1lli-scripts.tar 644 0 0
 file /bin/dtc ../../../build/dtc 755 0 0
 file /bin/fdtoverlay ../../../build/fdtoverlay 755 0 0
-file /boot/fdt ../../../build/linux.dtb 644 0 0
+file /boot/fdt ../../../build/stage2.dtb 644 0 0
