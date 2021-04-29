@@ -19,27 +19,27 @@ The idea is that the initial kernel, which is all that we need to interact with 
 **** SMP code
 **** SMC code
 
-| Stage             | l1lli | stage2    | Linux |
-|-------------------+-------+-----------+-------|
-| SMP               | no    | no        | yes   |
-| kernel modules    | no    | yes       | yes   |
-| uses devicetree   | no    | yes       | yes   |
-| writes devicetree | yes   | no        | no    |
-| kexec             | yes   | yes       | no    |
-| can reboot        | no    | yes       | yes   |
-| USB               | no    | sometimes | yes   |
-| keyboard          | no    | sometimes | yes   |
-| framebuffer       | no    | yes       | yes   |
-|                   |       |           |       |
+| Stage             | stage1 | stage2    | Linux |
+|-------------------+--------+-----------+-------|
+| SMP               | no     | no        | yes   |
+| kernel modules    | no     | yes       | yes   |
+| uses devicetree   | no     | yes       | yes   |
+| writes devicetree | yes    | no        | no    |
+| kexec             | yes    | yes       | no    |
+| can reboot        | no     | yes       | yes   |
+| USB               | no     | sometimes | yes   |
+| keyboard          | no     | sometimes | yes   |
+| framebuffer       | no     | yes       | yes   |
+|                   |        |           |       |
 
 | Stage  | SMP | modules | uses DT | kexec |
 |--------+-----+---------+---------+-------|
-| l1lli  | no  | no      | no      | yes   |
+| stage1 | no  | no      | no      | yes   |
 | stage2 | no  | yes     | yes     | yes   |
 | Linux  | yes | yes     | yes     | no    |
 
 #+INCLUDE "commfile/README.org" :minlevel 2
-#+INCLUDE "l1lli/README.org" :minlevel 2
+#+INCLUDE "stage1/README.org" :minlevel 2
 #+INCLUDE "m1n1/README.org" :minlevel 2
 #+INCLUDE "machoImage/README.org" :minlevel 2
 #+INCLUDE "scripts/README.org" :minlevel 2
