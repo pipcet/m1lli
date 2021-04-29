@@ -8,11 +8,15 @@
    as binary code in the (native) binaries. */
 
 static
+#include "../asm-snippets/mov-x0-0..h"
+;
+
+static
 #include "../asm-snippets/remap-to-physical.S.elf.bin.h"
 ;
 
 static
-#include "../asm-snippets/perform-alignment-2.S.elf.bin.h"
+#include "../asm-snippets/perform-alignment-4..h"
 ;
 
 static
@@ -31,9 +35,21 @@ static
 #include "../asm-snippets/x8r8g8b8.c.S.elf.bin.h"
 ;
 
+static
+#include "../asm-snippets/reboot-physical..h"
+;
+
+static
+#include "../asm-snippets/reboot-physical-2..h"
+;
+
+static
+#include "../asm-snippets/fillrect..h"
+;
+
 #define PRELUDE_SIZE 16384
 #define IMAGE_PADDING (1 << 21)
-#define VIRT_BASE 0xfffffe0008000000
+#define VIRT_BASE 0xfffffe0007000000
 #define HDR_SIZE 0x2000
 
 int main(int argc, char **argv)
@@ -152,7 +168,7 @@ int main(int argc, char **argv)
 #define LC_SEGMENT_64   0x19
   sprintf(hdr->header_segment.segname, "__HEADER");
   hdr->header_segment.cmd = LC_SEGMENT_64;
-  hdr->header_segment.cmdsize = sizeof(hdr->segment);
+  hdr->header_segment.cmdsize = sizeof(hdr->header_segment);
   hdr->header_segment.maxprot = 1;
   hdr->header_segment.initprot = 1;
   hdr->header_segment.vmaddr = VIRT_BASE - prelude_size;
@@ -177,7 +193,6 @@ int main(int argc, char **argv)
   hdr->segment.vmsize = image_size;
   hdr->segment.fileoff = prelude_size;
   hdr->segment.filesize = image_size;
-  hdr->segment.maxprot = 7;
   hdr->segment.nsects = 1;
   sprintf(hdr->segment.section.sectname, "__text");
   sprintf(hdr->segment.section.segname, "__TEXT");
@@ -193,26 +208,27 @@ int main(int argc, char **argv)
 #define ARM_THREAD_STATE64 6
   hdr->thread.flavor = ARM_THREAD_STATE64;
   hdr->thread.count = 68;
-  hdr->thread.pc = VIRT_BASE + HDR_SIZE;
+  hdr->thread.pc = VIRT_BASE + HDR_SIZE - prelude_size;
   void *image = buf + prelude_size;
-#define MOV_X0_0 0xd2800003
+#define MOV_X0_0 0xd2800000
   assert(HDR_SIZE >= sizeof(*hdr));
-  for (uint32_t *p = buf + HDR_SIZE; (void *)p < buf + prelude_size; p++)
-    *p = MOV_X0_0;
+  assert(HDR_SIZE%8 == 0);
+#define SNIPPET(name) do {			\
+    memcpy(p, name, sizeof(name));		\
+    p = (void *)p + sizeof(name);		\
+  } while (0)
+  for (uint32_t *p = buf + HDR_SIZE; (void *)p < buf + prelude_size;)
+    SNIPPET(mov_x0_0);
   uint32_t *p = buf + HDR_SIZE;
-  fread(image, image_size, 1, f);
   p = buf + HDR_SIZE;
-  memcpy(p, perform_alignment_2, sizeof(perform_alignment_2));
-  p = (void *)p + sizeof(perform_alignment_2);
-  memcpy(p, enable_all_clocks, sizeof(enable_all_clocks));
-  p = (void *)p + sizeof(enable_all_clocks);
-  memcpy(p, bring_up_phys, sizeof(bring_up_phys));
-  p = (void *)p + sizeof(bring_up_phys);
-  memcpy(p, x8r8g8b8, sizeof(x8r8g8b8));
-  p = (void *)p + sizeof(x8r8g8b8);
-  memcpy(p, jump_to_start_of_page, sizeof(jump_to_start_of_page));
+
+  SNIPPET(x8r8g8b8);
+  SNIPPET(perform_alignment_4);
+  SNIPPET(enable_all_clocks);
+  SNIPPET(bring_up_phys);
+  SNIPPET(fillrect);
   assert((void *)p <= buf + prelude_size);
-  fread(image, prelude_size + image_size, 1, f);
+  fread(image, image_size, 1, f);
   fclose(f);
   f = fopen(argv[2], "w");
   if (!f)
