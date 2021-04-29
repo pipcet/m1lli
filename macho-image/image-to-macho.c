@@ -201,7 +201,7 @@ int main(int argc, char **argv)
     *p = MOV_X0_0;
   uint32_t *p = buf + HDR_SIZE;
   fread(image, image_size, 1, f);
-  p = image + HDR_SIZE;
+  p = buf + HDR_SIZE;
   memcpy(p, perform_alignment_2, sizeof(perform_alignment_2));
   p = (void *)p + sizeof(perform_alignment_2);
   memcpy(p, enable_all_clocks, sizeof(enable_all_clocks));
@@ -211,7 +211,7 @@ int main(int argc, char **argv)
   memcpy(p, x8r8g8b8, sizeof(x8r8g8b8));
   p = (void *)p + sizeof(x8r8g8b8);
   memcpy(p, jump_to_start_of_page, sizeof(jump_to_start_of_page));
-  assert ((void *)p <= buf + prelude_size);
+  assert((void *)p <= buf + prelude_size);
   fread(image, prelude_size + image_size, 1, f);
   fclose(f);
   f = fopen(argv[2], "w");
