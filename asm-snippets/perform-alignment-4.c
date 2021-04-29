@@ -3,16 +3,17 @@
 START_SNIPPET {
   unsigned long pc;
   asm volatile("adr %0, ." : "=r" (pc));
-  unsigned long page = (pc & ~16383) + 16384;
-  unsigned long newpage = page & -(1 << 21);
-  if (page != newpage) {
-    newpage += 1 << 21;
-    unsigned long size = ((unsigned long *)page)[2];
-    __int128 *p = (void *)page + size;
+  unsigned long page = (pc & ~16383);
+  unsigned long image = page + 16384;
+  unsigned long newimage = image & -(1 << 21);
+  if (image != newimage) {
+    newimage += 1 << 21;
+    unsigned long size = ((unsigned long *)image)[2];
+    __int128 *p = (void *)image + size;
     while (p != (__int128 *)page) {
-      p[(newpage - page)/16] = *p; p--;
+      p[(newimage - image)/16] = *p; p--;
     }
-    asm volatile("br %0" : : "r" (newpage + pc - page - 16384));
+    asm volatile("br %0" : : "r" (newimage - image + pc));
     __builtin_unreachable();
   }
 } END_SNIPPET
