@@ -200,17 +200,8 @@ int main(int argc, char **argv)
   for (uint32_t *p = buf + HDR_SIZE; (void *)p < buf + prelude_size; p++)
     *p = MOV_X0_0;
   uint32_t *p = buf + HDR_SIZE;
-  //memmove(p, remap_to_physical, sizeof(remap_to_physical));
-  //p = (void *)p + sizeof(remap_to_physical);
-
-  //memcpy(buf + 0x4000 - sizeof(reboot_physical), reboot_physical,
-  //sizeof(reboot_physical));
-  //memcpy(buf + 0x4000 - sizeof(code_at_eoh), code_at_eoh,
-  //sizeof(code_at_eoh));
   fread(image, image_size, 1, f);
   p = image + HDR_SIZE;
-  //memcpy(p, remap_to_physical, sizeof(remap_to_physical));
-  //p = (void *)p + sizeof(remap_to_physical);
   memcpy(p, perform_alignment_2, sizeof(perform_alignment_2));
   p = (void *)p + sizeof(perform_alignment_2);
   memcpy(p, enable_all_clocks, sizeof(enable_all_clocks));
@@ -219,10 +210,7 @@ int main(int argc, char **argv)
   p = (void *)p + sizeof(bring_up_phys);
   memcpy(p, x8r8g8b8, sizeof(x8r8g8b8));
   p = (void *)p + sizeof(x8r8g8b8);
-  *p++ = 0xd2800000;
   memcpy(p, jump_to_start_of_page, sizeof(jump_to_start_of_page));
-  //memcpy(buf + 0x4000 - sizeof(code_at_eoh), code_at_eoh,
-  //sizeof(code_at_eoh));
   assert ((void *)p <= buf + prelude_size);
   fread(image, prelude_size + image_size, 1, f);
   fclose(f);
