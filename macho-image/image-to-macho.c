@@ -46,7 +46,7 @@ static
 #include "../asm-snippets/reboot-physical.S.elf.bin.h"
 
 #define PRELUDE_SIZE 16384
-#define LINUX_PADDING (1 << 21)
+#define IMAGE_PADDING (1 << 21)
 
 int main(int argc, char **argv)
 {
@@ -63,15 +63,15 @@ int main(int argc, char **argv)
     goto error;
 
   fseek(f, 0, SEEK_END);
-  size_t linux_size = ftell(f);
+  size_t image_size = ftell(f);
   fseek(f, 0, SEEK_SET);
-  linux_size += LINUX_PADDING - 1;
-  linux_size &= -LINUX_PADDING;
-  void *buf = malloc(prelude_size + linux_size);
+  image_size += IMAGE_PADDING - 1;
+  image_size &= -IMAGE_PADDING;
+  void *buf = malloc(prelude_size + image_size);
   if (!buf)
     goto error;
 
-  memset(buf, 0, prelude_size + linux_size);
+  memset(buf, 0, prelude_size + image_size);
 
   struct macho_header {
     struct {
@@ -188,15 +188,15 @@ int main(int argc, char **argv)
   hdr->segment.initprot = 7;
 #define VIRT_ADDR 0xfffffe0007040000
   hdr->segment.vmaddr = VIRT_ADDR;
-  hdr->segment.vmsize = linux_size;
+  hdr->segment.vmsize = image_size;
   hdr->segment.fileoff = 0;
-  hdr->segment.filesize = 16384 + linux_size;
+  hdr->segment.filesize = 16384 + image_size;
   hdr->segment.maxprot = 7;
   hdr->segment.nsects = 1;
   sprintf(hdr->segment.section.sectname, "__text");
   sprintf(hdr->segment.section.segname, "__TEXT");
   hdr->segment.section.addr = VIRT_ADDR;
-  hdr->segment.section.size = prelude_size + linux_size;
+  hdr->segment.section.size = prelude_size + image_size;
   hdr->segment.section.offset = 0;
 #define S_ATTR_SOME_INSTRUCTIONS 0x400
   hdr->segment.section.flags = S_ATTR_SOME_INSTRUCTIONS;
@@ -208,7 +208,7 @@ int main(int argc, char **argv)
   hdr->thread.flavor = ARM_THREAD_STATE64;
   hdr->thread.count = 68;
   hdr->thread.pc = VIRT_ADDR + 0x2100;
-  void *linux = buf + prelude_size;
+  void *image = buf + prelude_size;
 #define MOV_X0_0 0xd2800003
   for (uint32_t *p = buf + 0x2100; p < buf + prelude_size; p++)
     *p = MOV_X0_0;
@@ -218,12 +218,12 @@ int main(int argc, char **argv)
 #endif
   //memcpy(buf + 0x4000 - sizeof(code_at_eoh), code_at_eoh,
   //sizeof(code_at_eoh));
-  fread(linux, prelude_size + linux_size, 1, f);
+  fread(image, prelude_size + image_size, 1, f);
   fclose(f);
   f = fopen(argv[2], "w");
   if (!f)
     goto error;
-  fwrite(buf, 1, prelude_size + linux_size, f);
+  fwrite(buf, 1, prelude_size + image_size, f);
   fclose(f);
   return 0;
 }

@@ -1,53 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-
-static
-#include "../asm-snippets/remap-to-physical.S.elf.bin.h"
-;
-
-static
-#include "../asm-snippets/perform-alignment-2.S.elf.bin.h"
-;
-
-static
-#include "../asm-snippets/jump-to-start-of-page.S.elf.bin.h"
-;
-
-static
-#include "../asm-snippets/bring-up-phys.S.elf.bin.h"
-;
-
-static
-#include "../asm-snippets/enable-all-clocks.S.elf.bin.h"
-;
-
-static
-#include "../asm-snippets/x8r8g8b8.c.S.elf.bin.h"
-;
-
 int main(int argc, char **argv)
 {
-  if (argc != 3) {
-  error:
-    fprintf(stderr, "usage: %s <Image> <macho>\n",
-	    argv[0]);
-    exit(1);
-  }
-
-  FILE *f = fopen(argv[1], "r");
-  if (!f)
-    goto error;
-
-  fseek(f, 0, SEEK_END);
-  size_t size = ftell(f);
-  fseek(f, 0, SEEK_SET);
-  size += (1<<21) - 1;
-  size &= (-1<<21);
-  void *buf = malloc(16384 + size);
-  if (!buf)
-    goto error;
 
   memset(buf, 0, 16384 + size);
 
