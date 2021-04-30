@@ -226,7 +226,6 @@ int main(int argc, char **argv)
   SNIPPET(perform_alignment_4);
   SNIPPET(enable_all_clocks);
   SNIPPET(bring_up_phys);
-  SNIPPET(fillrect);
   assert((void *)p <= buf + prelude_size);
   fread(image, image_size, 1, f);
   fclose(f);
