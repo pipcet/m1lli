@@ -10,8 +10,8 @@ START_SNIPPET {
     newimage += 1 << 21;
     unsigned long size = ((unsigned long *)image)[2];
     __int128 *p = (void *)image + size;
-    while (p != (__int128 *)page) {
-      p[(newimage - image)/16] = *p; p--;
+    while (--p != (__int128 *)page) {
+      p[(newimage - image)/16] = *p;
     }
     asm volatile("isb");
     asm volatile("br %0" : : "r" (newimage - image + pc));
