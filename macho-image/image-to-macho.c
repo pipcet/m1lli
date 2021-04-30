@@ -12,7 +12,7 @@ static
 ;
 
 static
-#include "../asm-snippets/remap-to-physical.S.elf.bin.h"
+#include "../asm-snippets/remap-to-physical..h"
 ;
 
 static
@@ -20,19 +20,19 @@ static
 ;
 
 static
-#include "../asm-snippets/jump-to-start-of-page.S.elf.bin.h"
+#include "../asm-snippets/jump-to-start-of-page..h"
 ;
 
 static
-#include "../asm-snippets/bring-up-phys.S.elf.bin.h"
+#include "../asm-snippets/bring-up-phys..h"
 ;
 
 static
-#include "../asm-snippets/enable-all-clocks.S.elf.bin.h"
+#include "../asm-snippets/enable-all-clocks..h"
 ;
 
 static
-#include "../asm-snippets/x8r8g8b8.c.S.elf.bin.h"
+#include "../asm-snippets/x8r8g8b8..h"
 ;
 
 static
