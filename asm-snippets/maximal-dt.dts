@@ -52,13 +52,13 @@
 			no-map;
 		};
 
-		adt@80000000 {
-			reg = <0x08 0x4d34000 0x00 0x5c000>;
+		adt@800000000 {
+			reg = "adtgoeshere!!!!";
 			no-map;
 		};
 
-		bootargs@80000000 {
-			reg = <0x08 0x6c28000 0x00 0x4000>;
+		bootargs@800000000 {
+			reg = "bootargsgohere!";
 			no-map;
 		};
 	};
