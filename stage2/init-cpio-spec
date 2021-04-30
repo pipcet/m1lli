@@ -24,12 +24,14 @@ slink /bin/cp busybox 777 0 0
 slink /bin/dd busybox 777 0 0
 slink /bin/dmesg busybox 777 0 0
 slink /bin/echo busybox 777 0 0
+slink /bin/egrep busybox 777 0 0
 slink /bin/find busybox 777 0 0
 slink /bin/grep busybox 777 0 0
 slink /bin/head busybox 777 0 0
 slink /bin/less busybox 777 0 0
 slink /bin/ls busybox 777 0 0
 slink /bin/more busybox 777 0 0
+slink /bin/mount busybox 777 0 0
 slink /bin/od busybox 777 0 0
 slink /bin/reboot busybox 777 0 0
 slink /bin/sleep busybox 777 0 0
