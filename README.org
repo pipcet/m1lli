@@ -6,16 +6,14 @@ much as possible in the Linux kernel, which then `kexec()`s the real
 kernel.
 
 Ordinary bootloaders follow the
-[https://en.wikipedia.org/wiki/Emergency_medical_services#Physician-led_EMS
-stay and play] strategy, doing a lot of stuff like initializing
+[[https://en.wikipedia.org/wiki/Emergency_medical_services#Physician-led_EMS][stay and play]] strategy, doing a lot of stuff like initializing
 hardware, having a frame buffer, and parsing and preparing device
 trees. M1lli follows the
-[https://en.wikipedia.org/wiki/Emergency_medical_services#Transport-centered_EMS
-load and go] strategy: jump into the kernel image with the minimum
+[[https://en.wikipedia.org/wiki/Emergency_medical_services#Transport-centered_EMS][load and go]] strategy: jump into the kernel image with the minimum
 amount of fuss, telling it we don't have a device tree yet (all we
 have are some Apple-specific boot args).
 
-The name is inspired by [https://github.com/AsahiLinux/m1n1 m1n1].
+The name is inspired by [[https://github.com/AsahiLinux/m1n1][m1n1]].
 
 The idea is that the initial kernel, which is all that we need to
 interact with MacOS for, will be stable enough so it doesn't need to
@@ -57,10 +55,10 @@ the next 2 MiB boundary.
 | stage2 | no  | yes     | yes     | yes   |
 | Linux  | yes | yes     | yes     | no    |
 
-#+INCLUDE "commfile/README.org" :minlevel 2
-#+INCLUDE "stage1/README.org" :minlevel 2
-#+INCLUDE "m1n1/README.org" :minlevel 2
-#+INCLUDE "machoImage/README.org" :minlevel 2
-#+INCLUDE "scripts/README.org" :minlevel 2
-#+INCLUDE "src/README.org" :minlevel 2
-#+INCLUDE "stage2/README.org" :minlevel 2
+#+INCLUDE: "commfile/README.org" :minlevel 2
+#+INCLUDE: "stage1/README.org" :minlevel 2
+#+INCLUDE: "m1n1/README.org" :minlevel 2
+#+INCLUDE: "machoImage/README.org" :minlevel 2
+#+INCLUDE: "scripts/README.org" :minlevel 2
+#+INCLUDE: "src/README.org" :minlevel 2
+#+INCLUDE: "stage2/README.org" :minlevel 2
