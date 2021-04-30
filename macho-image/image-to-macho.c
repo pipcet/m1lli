@@ -189,15 +189,15 @@ int main(int argc, char **argv)
   hdr->segment.cmdsize = sizeof(hdr->segment);
   hdr->segment.maxprot = 7;
   hdr->segment.initprot = 7;
-  hdr->segment.vmaddr = VIRT_BASE;
-  hdr->segment.vmsize = image_size;
-  hdr->segment.fileoff = prelude_size;
-  hdr->segment.filesize = image_size;
+  hdr->segment.vmaddr = VIRT_BASE - prelude_size;
+  hdr->segment.vmsize = image_size + prelude_size;
+  hdr->segment.fileoff = 0;
+  hdr->segment.filesize = image_size + prelude_size;
   hdr->segment.nsects = 1;
   sprintf(hdr->segment.section.sectname, "__text");
   sprintf(hdr->segment.section.segname, "__TEXT");
-  hdr->segment.section.addr = VIRT_BASE;
-  hdr->segment.section.size = image_size;
+  hdr->segment.section.addr = VIRT_BASE - prelude_size;
+  hdr->segment.section.size = image_size + prelude_size;
   hdr->segment.section.offset = 0;
 #define S_ATTR_SOME_INSTRUCTIONS 0x400
   hdr->segment.section.flags = S_ATTR_SOME_INSTRUCTIONS;
@@ -208,7 +208,7 @@ int main(int argc, char **argv)
 #define ARM_THREAD_STATE64 6
   hdr->thread.flavor = ARM_THREAD_STATE64;
   hdr->thread.count = 68;
-  hdr->thread.pc = VIRT_BASE + HDR_SIZE - prelude_size;
+  hdr->thread.pc = VIRT_BASE - prelude_size + HDR_SIZE;
   void *image = buf + prelude_size;
 #define MOV_X0_0 0xd2800000
   assert(HDR_SIZE >= sizeof(*hdr));
