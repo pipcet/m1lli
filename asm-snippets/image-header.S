@@ -22,6 +22,17 @@ argdummy:
 	mov x0, x1
 	mov sp, x0
 	bl 1f
+stack:
+	.p2align 12
+	.rept 0xe38
+	.byte 0
+	.endr
+fdt:
+	.rept 0x1c4
+	.ascii "x"
+	.endr
+	adr x0, fdt
+
 1:
 	mov x1, #0xbd
 	lsl x1, x1, #12
@@ -78,16 +89,6 @@ end_upentry:
 	.rept 8192
 	.quad 0
 	.endr
-stack:
-	.p2align 12
-	.rept 0xe38
-	.byte 0
-	.endr
-fdt: .rept 0x1c4
-	.ascii "x"
-	.endr
-	adr x0, fdt
-
 counter_start:
 	nop
 	adr x0, counter
