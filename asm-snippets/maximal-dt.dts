@@ -338,6 +338,64 @@
 			phandle = <0x0a>;
 		};
 
+		i2c0@20a110000 {
+			compatible = "apple,i2c-v0";
+			reg = <0x02 0x35010000 0x00 0x4000>;
+			interrupts = <0x00 0x273 0x04>;
+			clocks = <0x0a>;
+			pinctrl-0 = <0x0b>;
+			pinctrl-names = "default";
+			#address-cells = <0x01>;
+			#size-cells = <0x00>;
+
+            hpm0: hpm0@38 {
+                compatible = "ti,tps6598x";
+                reg = <0x38>;
+                interrupt-parent = <0x0c>;
+                interrupts = <106 8>;
+
+                no-long-writes;
+            };
+
+			hpm1@3f {
+				compatible = "ti,tps6598x";
+				reg = <0x3f>;
+				interrupt-parent = <0x0c>;
+				interrupts = <0x6a 0x08>;
+				no-long-writes;
+
+				connector {
+					compatible = "usb-c-connector";
+					label = "USB-C B";
+					power-role = "source";
+					data-role = "host";
+
+					ports {
+						#address-cells = <0x01>;
+						#size-cells = <0x00>;
+
+						port@0 {
+							reg = <0x00>;
+
+							endpoint {
+								remote-endpoint = <0x0d>;
+								phandle = <0x2e>;
+							};
+						};
+
+						port@1 {
+							reg = <0x01>;
+
+							endpoint {
+								remote-endpoint = <0x0e>;
+								phandle = <0x20>;
+							};
+						};
+					};
+				};
+			};
+		};
+
 		atc0_common@23b700420 {
 			compatible = "apple,pmgr-clk-gate";
 			#clock-cells = <0x00>;
