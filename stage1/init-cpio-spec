@@ -42,4 +42,4 @@ file /perl.tar.gz ../../../binaries/perl.tar.gz 644 0 0
 file /m1lli-scripts.tar ../../../build/m1lli-scripts.tar 644 0 0
 file /bin/dtc ../../../build/dtc 755 0 0
 file /bin/fdtoverlay ../../../build/fdtoverlay 755 0 0
-file /boot/fdt ../../../build/stage2.dtb 644 0 0
+file /boot/fdt ../../../m1lli/asm-snippets/maximal-dt.dts.dtb 644 0 0
