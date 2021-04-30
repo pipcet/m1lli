@@ -29,6 +29,7 @@ slink /bin/head busybox 777 0 0
 slink /bin/less busybox 777 0 0
 slink /bin/ls busybox 777 0 0
 slink /bin/more busybox 777 0 0
+slink /bin/mount busybox 777 0 0
 slink /bin/od busybox 777 0 0
 slink /bin/reboot busybox 777 0 0
 slink /bin/sleep busybox 777 0 0
