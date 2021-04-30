@@ -13,6 +13,7 @@ START_SNIPPET {
     while (p != (__int128 *)page) {
       p[(newimage - image)/16] = *p; p--;
     }
+    asm volatile("isb");
     asm volatile("br %0" : : "r" (newimage - image + pc));
     __builtin_unreachable();
   }
