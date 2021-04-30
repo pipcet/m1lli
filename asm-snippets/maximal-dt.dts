@@ -61,6 +61,11 @@
 			reg = "bootargsgohere!";
 			no-map;
 		};
+
+		kmem@800000000 {
+			reg = "kmemgoeshere!!!";
+			no-map;
+		};
 	};
 
 	io-ranges {
