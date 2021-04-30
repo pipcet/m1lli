@@ -1,8 +1,15 @@
+#include <assert.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define PRELUDE_SIZE 256 * 1024
+
 #define MACHO_COMMAND_UNIX_THREAD 0x05
 #define MACHO_COMMAND_SEGMENT_64  0x19
 
 typedef unsigned long long u64;
-typedef u64 size_t;
 typedef unsigned int u32;
 
 #ifndef KERNEL_SIZE
@@ -10,6 +17,14 @@ typedef unsigned int u32;
 #endif
 
 #define NULL ((void *)0)
+
+static
+#include "../asm-snippets/macho-boot..h"
+;
+
+static
+#include "../asm-snippets/image-header..h"
+;
 
 struct macho_header {
     u32 irrelevant[5];
@@ -43,105 +58,6 @@ asm(".text\n\t");
 
 extern char argdummy[1];
 extern char start[1];
-register void *top_of_mem __asm__("x24");
-
-void *memset(void *p, int c, size_t size)
-{
-  char *p2 = p;
-  while (size--) *p2++ = c;
-  return p;
-}
-
-void *memalign(size_t align, size_t size)
-{
-  while (((size_t)top_of_mem) & (align - 1))
-    top_of_mem++;
-
-  void *ret = top_of_mem;
-  top_of_mem += size;
-  return ret;
-}
-
-unsigned int bswap(unsigned int x)
-{
-  return __builtin_bswap32(x);
-}
-
-unsigned long bswap64(unsigned long x)
-{
-  return __builtin_bswap64(x);
-}
-
-#define fdt32(x) bswap(x)
-#define fdt64(x) bswap((x) >> 32), bswap((x) & 0xffffffff)
-
-inline void build_dt(unsigned int *dt, unsigned long memoff0,
-		     unsigned long memsize0)
-{
-  /* echo '/dts-v1/; / { #address-cells=<2>; #size-cells=<2>; memory { reg = <0x12345678 0x9abcdef0 0x0fedcba9 0x87654321>;};};' | dtc -I dts -O dtb | od -tx4 --width=1 -Anone -v | sed -e 's/ \(.*\)/\tfdt32(0x\1),/' */
-  unsigned int templ[] = {
-	fdt32(0xedfe0dd0),
-	fdt32(0xb3000000),
-	fdt32(0x38000000),
-	fdt32(0x94000000),
-	fdt32(0x28000000),
-	fdt32(0x11000000),
-	fdt32(0x10000000),
-	fdt32(0x00000000),
-	fdt32(0x1f000000),
-	fdt32(0x5c000000),
-	fdt32(0x00000000),
-	fdt32(0x00000000),
-	fdt32(0x00000000),
-	fdt32(0x00000000),
-	fdt32(0x01000000),
-	fdt32(0x00000000),
-	fdt32(0x03000000),
-	fdt32(0x04000000),
-	fdt32(0x00000000),
-	fdt32(0x02000000),
-	fdt32(0x03000000),
-	fdt32(0x04000000),
-	fdt32(0x0f000000),
-	fdt32(0x02000000),
-	fdt32(0x01000000),
-	fdt32(0x6f6d656d),
-	fdt32(0x00007972),
-	fdt32(0x03000000),
-	fdt32(0x10000000),
-	fdt32(0x1b000000),
-	fdt64(memoff0),
-	fdt64(memsize0),
-	fdt32(0x02000000),
-	fdt32(0x02000000),
-	fdt32(0x09000000),
-	fdt32(0x64646123),
-	fdt32(0x73736572),
-	fdt32(0x6c65632d),
-	fdt32(0x2300736c),
-	fdt32(0x657a6973),
-	fdt32(0x6c65632d),
-	fdt32(0x7200736c),
-	fdt32(0x00006765),
-  };
-
-  __builtin_memcpy(dt, templ, sizeof(templ));
-}
-
-void mangle_x0(unsigned long x0, unsigned long x1)
-{
-  void *buf = x1;
-}
-
-asm("nop\n\tnop\n\tmov x0, #0\n\tb .\n\t");
-
-
-asm("nop\n\t");
-asm("nop\n\t");
-asm("nop\n\t");
-asm("nop\n\t");
-asm("nop\n\t");
-asm("nop\n\t");
 
 char buf[118808] = { 1, };
 
@@ -155,5 +71,35 @@ int main(int argc, char **argv)
     exit(1);
   }
 
-  
+  FILE *f = fopen(argv[1], "r");
+  if (!f)
+    goto error;
+
+  fseek(f, 0, SEEK_END);
+  size_t image_size = ftell(f);
+  fseek(f, 0, SEEK_SET);
+  void *buf = malloc(prelude_size + image_size);
+  if (!buf)
+    goto error;
+
+  memset(buf, 0, prelude_size + image_size);
+
+  void *p = buf;
+  memcpy(p, image_header, sizeof(image_header));
+  p += sizeof(image_header);
+  *((unsigned long *)p + 2) = prelude_size + image_size;
+  memcpy(p, macho_boot, sizeof(macho_boot));
+  p += sizeof(macho_boot);
+
+  void *image = buf + prelude_size;
+  assert(p <= image);
+
+  fread(image, image_size, 1, f);
+  fclose(f);
+  f = fopen(argv[2], "w");
+  if (!f)
+    goto error;
+  fwrite(buf, 1, prelude_size + image_size, f);
+  fclose(f);
+  return 0;
 }

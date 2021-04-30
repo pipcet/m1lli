@@ -1,14 +1,22 @@
-void boot_macho_init(unsigned long long *arg, unsigned long ptr);
+#include "snippet.h"
+
+void boot_macho_init(void)
+  __attribute__((section(".text")));
+volatile register void *top_of_mem __asm__("x24");
+volatile register unsigned long long *arg __asm__("x25");
+volatile register unsigned long ptr __asm__("x26");
+
+START_SNIPPET {
+  boot_macho_init();
+} END_SNIPPET
+
 #include <stddef.h>
 #include <stdint.h>
 typedef unsigned long u64;
 typedef unsigned u32;
 
-void boot_macho_init(unsigned long long *arg, unsigned long ptr);
 void *memalign(size_t align, size_t size);
-register void *top_of_mem __asm__("x24");
-register unsigned long long *arg __asm__("x16");
-register unsigned long ptr __asm__("x17");
+void *memset(void *p, int c, size_t size);
 
 #define NULL ((void *)0)
 
@@ -44,7 +52,7 @@ struct macho_command {
     } u;
 };
 
-void boot_macho_init(unsigned long long *arg, unsigned long ptr)
+void boot_macho_init(void)
 {
 #if 0
   unsigned * framebuffer = (void *)0xbdf438000;
@@ -54,7 +62,7 @@ void boot_macho_init(unsigned long long *arg, unsigned long ptr)
     }
   }
 #endif
-  top_of_mem = (void *)0x800000000 + 1024 * 1024 * 1024;
+  top_of_mem = (void *)0x840000000LL;
   unsigned long *rvbar = (void *)arg - 0x48 - 0x4000 + 0x80;
   void *start = ((void *)arg) - 0x48 + 128 * 1024;
   while (*(unsigned *)start != 0xfeedfacf)
@@ -120,7 +128,6 @@ void boot_macho_init(unsigned long long *arg, unsigned long ptr)
         command = (void *)command + command->size;
     }
     ((void (*)(unsigned long))virtpc)((unsigned long)dt);
-    __builtin_unreachable();
 }
 
 void *memset(void *p, int c, size_t size)
