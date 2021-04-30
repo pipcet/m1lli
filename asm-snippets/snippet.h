@@ -7,9 +7,8 @@
     asm volatile(".cfi_startproc");
 
 #define END_SNIPPET				\
+ label:						\
    asm volatile(".cfi_endproc");		\
    asm volatile(".popsection");			\
    asm volatile("" : : "r" (&&label));		\
- label:						\
- return;					\
  }
