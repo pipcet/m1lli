@@ -1,0 +1,12 @@
+#!/bin/sh
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=m1n1.image skip=7 seek=72 conv=notrunc
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=m1n1.image skip=6 seek=73 conv=notrunc
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=m1n1.image skip=5 seek=74 conv=notrunc
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=m1n1.image skip=4 seek=75 conv=notrunc
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=m1n1.image skip=3 seek=76 conv=notrunc
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=m1n1.image skip=2 seek=77 conv=notrunc
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=m1n1.image skip=1 seek=78 conv=notrunc
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=m1n1.image skip=0 seek=79 conv=notrunc
+od -tx m1n1.image | head -50
+echo /bin/kexec -fix /m1n1.image --dtb=/sys/firmware/fdt
+/bin/kexec -fix /m1n1.image --dtb=/sys/firmware/fdt
