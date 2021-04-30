@@ -1,3 +1,4 @@
 /scripts/
 /asm-snippets/*.*.*
 *~
+/asm-snippets/.all
