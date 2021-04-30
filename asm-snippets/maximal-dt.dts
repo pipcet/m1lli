@@ -29,6 +29,7 @@
 		stride = <0x2800>;
 		width = <0xa00>;
 		status = "okay";
+		backlight = <0x02>;
 	};
 
 	reserved-memory {
@@ -551,6 +552,7 @@
 
 		atcphy1@500000000 {
 			compatible = "apple,atc-phy-m1";
+			clocks = <0x1f>;
 			reg = <0x05 0x00 0x00 0x1000000 0x05 0x2000000 0x00 0x1080000>;
 			#phy-cells = <0x00>;
 			usb-role-switch;
