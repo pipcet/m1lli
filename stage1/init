@@ -5,14 +5,14 @@ mount -t configfs configfs sys/kernel/config
 tar xzvf /perl.tar.gz
 tar xvf /m1lli-scripts.tar
 
-dtc -I dtb -O dts /sys/firmware/fdt > /fdt.dts
-perl /fdt-to-props.pl /fdt.dts | egrep '^.*reserved-memory\.smpentry' > /new-reserved-memory
+dtc -I dtb -O dts /sys/firmware/fdt > /fdt.dts # XXX do this in advance
+perl /fdt-to-props.pl /fdt.dts | grep 'reserved-memory' > /new-reserved-memory # XXX ditto
 dtc -I dtb -O dts /boot/fdt > /boot/fdt.dts
-(perl /fdt-to-props.pl /boot/fdt.dts | egrep -v '^.*reserved-memory\.smpentry'; cat /new-reserved-memory) | perl props-to-fdt.pl > /boot/fdt.dts.new && mv /boot/fdt.dts.new /boot/fdt.dts
+(perl /fdt-to-props.pl /boot/fdt.dts | grep -v 'reserved-memory'; cat /new-reserved-memory) | perl props-to-fdt.pl > /boot/fdt.dts.new && /bin/busybox mv /boot/fdt.dts.new /boot/fdt.dts
 dtc -I dts -O dtb /boot/fdt.dts > /boot/fdt
 ls -l /boot/fdt
-cat /sys/firmware/devicetree/base/adt/contents | /adt2fdt
-perl /copy-fdt-props.pl
+# cat /sys/firmware/devicetree/base/adt/contents | /adt2fdt
+# perl /copy-fdt-props.pl
 
 sleep 5
 
