@@ -14,6 +14,5 @@ ls -l /boot/fdt
 # cat /sys/firmware/devicetree/base/adt/contents | /adt2fdt
 # perl /copy-fdt-props.pl
 
-sleep 5
+/bin/kexec -fix /boot/Image --dtb=/boot/fdt
 
-/bin/kexec -sfx /boot/Image --dtb=/boot/fdt
