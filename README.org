@@ -1,10 +1,29 @@
-* m1lli
+* m1lli is Linux loading itself
 
-It's not quite m1n1 [https://github.com/AsahiLinux/m1n1].
+This is a bootloader for Linux on Apple M1 machines. The idea is to
+keep what the actual bootloader does to an absolute minimum, and do as
+much as possible in the Linux kernel, which then `kexec()`s the real
+kernel.
 
-This is a bootloader for Linux based on a somewhat minified Linux kernel and the `kexec()` feature.  So m1lli refers to the kernel and some minimal userspace code.
+Ordinary bootloaders follow the
+[https://en.wikipedia.org/wiki/Emergency_medical_services#Physician-led_EMS
+stay and play] strategy, doing a lot of stuff like initializing
+hardware, having a frame buffer, and parsing and preparing device
+trees. M1lli follows the
+[https://en.wikipedia.org/wiki/Emergency_medical_services#Transport-centered_EMS
+load and go] strategy: jump into the kernel image with the minimum
+amount of fuss, telling it we don't have a device tree yet (all we
+have are some Apple-specific boot args).
 
-The idea is that the initial kernel, which is all that we need to interact with MacOS for, will be stable enough so it doesn't need to be flashed very often.
+The name is inspired by [https://github.com/AsahiLinux/m1n1 m1n1].
+
+The idea is that the initial kernel, which is all that we need to
+interact with MacOS for, will be stable enough so it doesn't need to
+be flashed very often.
+
+How small is the minimal bootloader code? My plan is to get it down to
+68 bytes, which is all we need to realign an in-memory kernel image to
+the next 2 MiB boundary.
 
 ** kernel configuration
 *** included features
