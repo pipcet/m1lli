@@ -41,8 +41,7 @@ argdummy:
 	lsl x1, x1, #16
 	add x1, x1, #0x8000
 	mov sp, x1
-	adr x0, argdummy
-	ldr x1, [x0]
+	ldr x1, [argdummy]
 	bl boot_macho_init
 	nop
 

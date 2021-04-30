@@ -315,3 +315,14 @@ asm("nop\n\t");
 asm("nop\n\t");
 
 char buf[118808] = { 1, };
+
+int main(int argc, char **argv)
+{
+  const size_t prelude_size = PRELUDE_SIZE;
+  if (argc != 3) {
+  error:
+    fprintf(stderr, "usage: %s <macho image> <Linux image>\n",
+	    argv[0]);
+    exit(1);
+  }
+}
