@@ -42,5 +42,5 @@ file /m1lli-scripts.tar ../../../build/m1lli-scripts.tar 644 0 0
 file /bin/dtc ../../../build/dtc 755 0 0
 file /bin/fdtoverlay ../../../build/fdtoverlay 755 0 0
 file /boot/fdt ../../../build/linux.dtb 644 0 0
-file /bin/memtool ../../../build/memtool 755 0
+file /bin/memtool ../../../build/memtool 755 0 0
 file /m1n1.macho.image ../../../build/m1n1.macho.image 644 0 0
