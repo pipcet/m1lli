@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 #define LC_SEGMENT_64   0x19
   sprintf(hdr->header_segment.segname, "__HEADER");
   hdr->header_segment.cmd = LC_SEGMENT_64;
-  hdr->header_segment.cmdsize = sizeof(hdr->segment);
+  hdr->header_segment.cmdsize = sizeof(hdr->header_segment);
   hdr->header_segment.maxprot = 1;
   hdr->header_segment.initprot = 1;
   hdr->header_segment.vmaddr = 0xfffffe0006ffc000;
