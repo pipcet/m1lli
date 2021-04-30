@@ -56,6 +56,17 @@ static
 #define VIRT_BASE 0xfffffe0007000000
 #define HDR_SIZE 0x2000
 
+/* Magic Mach-O constants */
+#define CPU_TYPE_ARM64  0x0100000c
+#define CPU_SUBTYPE_ARM64 0x00000002
+#define MH_KERNEL       12
+#define MH_DYLDLINK     0x00000004
+#define LC_SEGMENT_64   0x19
+#define S_ATTR_SOME_INSTRUCTIONS 0x400
+#define S_ATTR_SOME_INSTRUCTIONS 0x400
+#define LC_UNIXTHREAD   0x5
+#define ARM_THREAD_STATE64 6
+
 int main(int argc, char **argv)
 {
   const size_t prelude_size = PRELUDE_SIZE;
@@ -92,6 +103,8 @@ int main(int argc, char **argv)
       uint32_t flags;
       uint32_t reserved;
     } header;
+#define HEADER_SEGMENT
+#ifdef HEADER_SEGMENT
     struct {
       uint32_t cmd;
       uint32_t cmdsize;
@@ -117,6 +130,7 @@ int main(int argc, char **argv)
 	uint32_t reserved[3];
       } section;
     } header_segment;
+#endif
     struct {
       uint32_t cmd;
       uint32_t cmdsize;
@@ -158,23 +172,19 @@ int main(int argc, char **argv)
   } *hdr = buf;
   memset(hdr, 0, sizeof *hdr);
   hdr->header.magic = 0xfeedfacf;
-#define CPU_TYPE_ARM64  0x0100000c
-#define CPU_SUBTYPE_ARM64 0x00000002
   hdr->header.cputype = CPU_TYPE_ARM64;
   hdr->header.cpusubtype = CPU_SUBTYPE_ARM64;
-#define MH_KERNEL       12
   hdr->header.filetype = MH_KERNEL;
+#ifdef HEADER_SEGMENT
   hdr->header.ncmds = 3;
   hdr->header.sizeofcmds = sizeof(hdr->header_segment) + sizeof(hdr->segment) + sizeof(hdr->thread);
-#define MH_DYLDLINK     0x00000004
   hdr->header.flags = MH_DYLDLINK;
 
-#define LC_SEGMENT_64   0x19
   sprintf(hdr->header_segment.segname, "__HEADER");
   hdr->header_segment.cmd = LC_SEGMENT_64;
   hdr->header_segment.cmdsize = sizeof(hdr->header_segment);
-  hdr->header_segment.maxprot = 1;
-  hdr->header_segment.initprot = 1;
+  hdr->header_segment.maxprot = 7;
+  hdr->header_segment.initprot = 7;
   hdr->header_segment.vmaddr = VIRT_BASE - prelude_size;
   hdr->header_segment.vmsize = prelude_size;
   hdr->header_segment.fileoff = 0;
@@ -185,10 +195,12 @@ int main(int argc, char **argv)
   hdr->header_segment.section.addr = VIRT_BASE - prelude_size;
   hdr->header_segment.section.size = prelude_size;
   hdr->header_segment.section.offset = 0;
-#define S_ATTR_SOME_INSTRUCTIONS 0x400
   hdr->header_segment.section.flags = 0;
   hdr->header_segment.section.alignment_hint = 14;
-  sprintf(hdr->segment.segname, "__TEXT");
+#else
+  hdr->header.ncmds = 2;
+  hdr->header.sizeofcmds = sizeof(hdr->segment) +  sprintf(hdr->segment.segname, "__TEXT");
+#endif
   hdr->segment.cmd = LC_SEGMENT_64;
   hdr->segment.cmdsize = sizeof(hdr->segment);
   hdr->segment.maxprot = 7;
@@ -203,13 +215,10 @@ int main(int argc, char **argv)
   hdr->segment.section.addr = VIRT_BASE;
   hdr->segment.section.size = image_size;
   hdr->segment.section.offset = 0;
-#define S_ATTR_SOME_INSTRUCTIONS 0x400
   hdr->segment.section.flags = S_ATTR_SOME_INSTRUCTIONS;
   hdr->segment.section.alignment_hint = 22; /* not obeyed */
-#define LC_UNIXTHREAD   0x5
   hdr->thread.cmd = LC_UNIXTHREAD;
   hdr->thread.cmdsize = sizeof(hdr->thread);
-#define ARM_THREAD_STATE64 6
   hdr->thread.flavor = ARM_THREAD_STATE64;
   hdr->thread.count = 68;
   hdr->thread.pc = VIRT_BASE + HDR_SIZE - prelude_size;
