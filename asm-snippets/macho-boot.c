@@ -1,3 +1,49 @@
+void boot_macho_init(unsigned long long *arg, unsigned long ptr);
+#include <stddef.h>
+#include <stdint.h>
+typedef unsigned long u64;
+typedef unsigned u32;
+
+void boot_macho_init(unsigned long long *arg, unsigned long ptr);
+void *memalign(size_t align, size_t size);
+register void *top_of_mem __asm__("x24");
+register unsigned long long *arg __asm__("x16");
+register unsigned long ptr __asm__("x17");
+
+#define NULL ((void *)0)
+
+#define PRELUDE_SIZE 256 * 1024
+
+#define MACHO_COMMAND_UNIX_THREAD 0x05
+#define MACHO_COMMAND_SEGMENT_64  0x19
+struct macho_header {
+    u32 irrelevant[5];
+    u32 cmdsize;
+    u32 irrelevant2[2];
+};
+
+struct macho_command {
+    u32 type;
+    u32 size;
+    union {
+        struct {
+            u32 thread_type;
+            u32 length;
+            u64 regs[32];
+            u64 pc;
+            u64 regs2[1];
+        } unix_thread;
+        struct {
+            char segname[16];
+            u64 vmaddr;
+            u64 vmsize;
+            u64 fileoff;
+            u64 filesize;
+            u64 unused2[2];
+        } segment_64;
+    } u;
+};
+
 void boot_macho_init(unsigned long long *arg, unsigned long ptr)
 {
 #if 0
@@ -76,3 +122,31 @@ void boot_macho_init(unsigned long long *arg, unsigned long ptr)
     ((void (*)(unsigned long))virtpc)((unsigned long)dt);
     __builtin_unreachable();
 }
+
+void *memset(void *p, int c, size_t size)
+{
+  char *p2 = p;
+  while (size--) *p2++ = c;
+  return p;
+}
+
+void *memalign(size_t align, size_t size)
+{
+  while (((size_t)top_of_mem) & (align - 1))
+    top_of_mem++;
+
+  void *ret = top_of_mem;
+  top_of_mem += size;
+  return ret;
+}
+
+unsigned int bswap(unsigned int x)
+{
+  return __builtin_bswap32(x);
+}
+
+unsigned long bswap64(unsigned long x)
+{
+  return __builtin_bswap64(x);
+}
+
