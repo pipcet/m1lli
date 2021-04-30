@@ -47,6 +47,10 @@ static
 #include "../asm-snippets/fillrect..h"
 ;
 
+static
+#include "../asm-snippets/mini-m1lli..h"
+;
+
 #define PRELUDE_SIZE 16384
 #define IMAGE_PADDING (1 << 21)
 #define VIRT_BASE 0xfffffe0007000000
@@ -219,15 +223,18 @@ int main(int argc, char **argv)
   } while (0)
   for (uint32_t *p = buf + HDR_SIZE; (void *)p < buf + prelude_size;)
     SNIPPET(mov_x0_0);
+#if 0
   uint32_t *p = buf + HDR_SIZE;
   p = buf + HDR_SIZE;
 
   SNIPPET(x8r8g8b8);
+  SNIPPET(fillrect);
   SNIPPET(perform_alignment_4);
   SNIPPET(enable_all_clocks);
   SNIPPET(bring_up_phys);
-  SNIPPET(fillrect);
   assert((void *)p <= buf + prelude_size);
+#endif
+  memcpy(image - sizeof(mini_m1lli), mini_m1lli, sizeof(mini_m1lli));
   fread(image, image_size, 1, f);
   fclose(f);
   f = fopen(argv[2], "w");
