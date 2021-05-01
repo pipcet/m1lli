@@ -27,4 +27,5 @@ bootargs:
 	.byte 0
 	.endr
 stack:
+1:
 	adr x10, bootargs
