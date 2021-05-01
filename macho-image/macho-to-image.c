@@ -71,30 +71,31 @@ int main(int argc, char **argv)
     goto error;
 
   fseek(f, 0, SEEK_END);
-  size_t image_size = ftell(f);
+  size_t macho_size = ftell(f);
   fseek(f, 0, SEEK_SET);
-  void *buf = malloc(prelude_size + image_size);
+  void *buf = malloc(prelude_size + macho_size);
   if (!buf)
     goto error;
 
-  memset(buf, 0, prelude_size + image_size);
+  memset(buf, 0, prelude_size + macho_size);
 
   void *p = buf;
   memcpy(p, image_header, sizeof(image_header));
   p += sizeof(image_header);
-  *((unsigned long *)p + 2) = prelude_size + image_size;
+  *((unsigned long *)p + 2) = prelude_size + macho_size;
   memcpy(p, macho_boot, sizeof(macho_boot));
   p += sizeof(macho_boot);
 
-  void *image = buf + prelude_size;
-  assert(p <= image);
+  void *macho = buf + prelude_size;
+  assert(p <= macho);
 
-  fread(image, image_size, 1, f);
+  *(uint64_t *)(buf + 0x10) = prelude_size + macho_size;
+  fread(macho, macho_size, 1, f);
   fclose(f);
   f = fopen(argv[2], "w");
   if (!f)
     goto error;
-  fwrite(buf, 1, prelude_size + image_size, f);
+  fwrite(buf, 1, prelude_size + macho_size, f);
   fclose(f);
   return 0;
 }
