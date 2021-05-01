@@ -47,6 +47,5 @@ stack:
 	add x1, x1, #0x03d
 	lsl x1, x1, #16
 	add x1, x1, #0x8000
-	mov sp, x1
-	adr x25, argdummy
-	ldr x26, [x25]
+
+	adr x10, bootargs
