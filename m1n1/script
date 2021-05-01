@@ -1,13 +1,13 @@
 #!/bin/sh
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=Image skip=7 seek=72 conv=notrunc
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=Image skip=6 seek=73 conv=notrunc
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=Image skip=5 seek=74 conv=notrunc
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=Image skip=4 seek=75 conv=notrunc
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=Image skip=3 seek=76 conv=notrunc
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=Image skip=2 seek=77 conv=notrunc
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=Image skip=1 seek=78 conv=notrunc
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@80000000/reg bs=1 count=1 of=Image skip=0 seek=79 conv=notrunc
-od -tx Image | head -50
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/Image skip=7 seek=72 conv=notrunc
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/Image skip=6 seek=73 conv=notrunc
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/Image skip=5 seek=74 conv=notrunc
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/Image skip=4 seek=75 conv=notrunc
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/Image skip=3 seek=76 conv=notrunc
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/Image skip=2 seek=77 conv=notrunc
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/Image skip=1 seek=78 conv=notrunc
+/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/Image skip=0 seek=79 conv=notrunc
+od -Ax -tx Image | head -50
 echo /bin/kexec -fix /Image --dtb=/sys/firmware/fdt
-/bin/kexec -fix /Image --dtb=/sys/firmware/fdt
+/bin/kexec -fix /Image --mem-min=0x900000000 --mem-max=0xa00000000
 sleep 1m
