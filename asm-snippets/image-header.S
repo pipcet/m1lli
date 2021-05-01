@@ -20,8 +20,7 @@ bootargs:
 2:
 	adr x1, stack
 	sub x1, x1, #16
-	mov x0, x1
-	mov sp, x0
+	mov sp, x1
 	bl 1f
 	.p2align 12
 	.rept 0x1000
