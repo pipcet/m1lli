@@ -14,8 +14,8 @@ START_SNIPPET {
 typedef unsigned long u64;
 typedef unsigned u32;
 
-void *memalign(size_t align, size_t size);
-void *memset(void *p, int c, size_t size);
+extern inline void *memalign(size_t align, size_t size);
+extern inline void *memset(void *p, int c, size_t size);
 
 #define NULL ((void *)0)
 
@@ -129,14 +129,14 @@ void boot_macho_init(void)
     ((void (*)(unsigned long))virtpc)((unsigned long)dt);
 }
 
-void *memset(void *p, int c, size_t size)
+extern inline void *memset(void *p, int c, size_t size)
 {
   char *p2 = p;
   while (size--) *p2++ = c;
   return p;
 }
 
-void *memalign(size_t align, size_t size)
+extern inline void *memalign(size_t align, size_t size)
 {
   while (((size_t)top_of_mem) & (align - 1))
     top_of_mem++;
