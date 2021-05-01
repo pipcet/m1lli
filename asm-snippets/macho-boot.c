@@ -2,9 +2,8 @@
 
 void boot_macho_init(void)
   __attribute__((section(".text")));
-volatile register void *top_of_mem __asm__("x24");
-volatile register unsigned long long *arg __asm__("x25");
-volatile register unsigned long ptr __asm__("x26");
+volatile register void *top_of_mem __asm__("x11");
+volatile register unsigned long long *arg __asm__("x10");
 
 START_SNIPPET {
   boot_macho_init();
