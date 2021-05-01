@@ -53,80 +53,77 @@ struct macho_command {
 
 void boot_macho_init(void)
 {
-#if 0
-  unsigned * framebuffer = (void *)0xbdf438000;
-  for (unsigned x = 0; x < 2560; x++) {
-    for (unsigned y = 0; y < 800; y++) {
-      framebuffer[y * 2560 + x] = y; //((*arg)&(1 << (x & 31))) ? 0xffffff : 0;
-    }
-  }
-#endif
-  top_of_mem = (void *)0x840000000LL;
-  unsigned long *rvbar = (void *)arg - 0x48 - 0x4000 + 0x80;
-  void *start = ((void *)arg) - 0x48 + 128 * 1024;
-  while (*(unsigned *)start != 0xfeedfacf)
-      start += 4;
+  unsigned long ptr = *(long *)arg;
+  unsigned long flags;
+  top_of_mem = (void *)0x880000000;
+  volatile void * volatile start = ((void *)arg) - 0x48 + 256 * 1024;
   struct macho_header *header = start;
-  struct macho_command *command = (void *)(header + 1);
-  struct macho_command *last_command = (void *)command + header->cmdsize;
+  struct macho_command *command = ((void *)header) + 32;
+  void *last_command = ((void *)command) + header->cmdsize;
   u64 pc = 0;
-  u64 vmbase = 0;
+  u64 vmin = (u64)-1, vmax = 0;
   u64 vmtotalsize = 0;
-  u64 dtsize = 2 * 1024 * 1024;
-  while (command < last_command) {
-      switch (command->type) {
-	  case MACHO_COMMAND_UNIX_THREAD:
-	      pc = command->u.unix_thread.pc;
-	      break;
-	  case MACHO_COMMAND_SEGMENT_64: {
-	      u64 vmaddr = command->u.segment_64.vmaddr;
-	      u64 vmsize = command->u.segment_64.vmsize;
+  int count = 0;
+  while ((void *)command < last_command) {
+    switch (command->type) {
+    case MACHO_COMMAND_UNIX_THREAD:
+      pc = command->u.unix_thread.pc;
+      break;
+    case MACHO_COMMAND_SEGMENT_64: {
+      u64 vmaddr = command->u.segment_64.vmaddr;
+      u64 vmsize = command->u.segment_64.vmsize;
 
-	      if (vmbase == 0)
-		  vmbase = vmaddr;
-	      if (vmsize + vmbase - vmaddr > vmtotalsize)
-		  vmtotalsize = vmsize + vmaddr - vmbase;
-                break;
-            }
-        }
-        command = (void *)command + command->size;
+      if (vmin >= vmaddr)
+	vmin = vmaddr;
+      if (vmax <= vmaddr + vmsize)
+	vmax = vmaddr + vmsize;
+    }
+    }
+    command = ((void *)command) + command->size;
   }
-  vmtotalsize += 16383;
+  vmtotalsize = vmax - vmin;
+  vmtotalsize = 0;
+  vmtotalsize += 16384;
   vmtotalsize &= -16384L;
-  void *dest = memalign(1 << 21, vmtotalsize + dtsize);
-  void *dt = dest + vmtotalsize;
-  *(unsigned int *)dt = 0;
-  *((unsigned int *)dt + 1) = dtsize;
-  *((unsigned long *)dt + 1) = ptr;
+  memset(top_of_mem, (count^=0xff), 10240 * 1600);
+  void *dest = memalign(1, vmtotalsize);
+  dest = top_of_mem;
+  memset(0xbdf438000, 0, 2500 * 1600 * 4);
+#if 0
   for (size_t count = 0; count < vmtotalsize; count++)
     ((char*)dest)[count] = 0;
-    command = (void *)(header + 1);
-    void *virtpc = NULL;
-    while (command < last_command) {
-        switch (command->type) {
-            case MACHO_COMMAND_SEGMENT_64: {
-                if (vmbase == 0)
-                    vmbase = command->u.segment_64.vmaddr;
-                u64 vmaddr = command->u.segment_64.vmaddr;
-                u64 vmsize = command->u.segment_64.vmsize;
-                u64 fileoff = command->u.segment_64.fileoff;
-                u64 filesize = command->u.segment_64.filesize;
-                u64 pcoff = pc - vmaddr;
+#endif
+  void *virtpc = NULL;
+  command = ((void *)header) + 32;
+  while ((void *)command < last_command) {
+    switch (command->type) {
+    case MACHO_COMMAND_SEGMENT_64: {
+      u64 vmaddr = command->u.segment_64.vmaddr;
+      u64 vmsize = command->u.segment_64.vmsize;
+      u64 fileoff = command->u.segment_64.fileoff;
+      u64 filesize = command->u.segment_64.filesize;
+      u64 pcoff = pc - vmaddr;
+      if (vmsize > 32 * 1024 * 1024)
+	break;
 
-		for (size_t count = 0; count < filesize; count++)
-		    ((char*)dest)[vmaddr - vmbase + count] =
-		        ((char *)start)[fileoff + count];
-                if (pcoff < vmsize) {
-                    if (pcoff < filesize) {
-                        virtpc = dest + vmaddr - vmbase + pcoff;
-			*rvbar = virtpc - 0x100;
-                    }
-                }
-            }
-        }
-        command = (void *)command + command->size;
+      for (size_t count = 0; count < vmsize; count++)
+	//((char *)0xbdf438000)[(vmaddr - vmin + count) % (2560*1600*4)] =
+	  ((char*)dest)[vmaddr - vmin + count] =
+	  ((char *)start)[fileoff + count];
+      if (pcoff < vmsize) {
+	if (pcoff < filesize) {
+	  virtpc = dest + vmaddr - vmin + pcoff;
+	  //virtpc = start + fileoff + pcoff;
+	}
+      }
     }
-    ((void (*)(unsigned long))virtpc)((unsigned long)dt);
+    }
+    command = ((void *)command) + command->size;
+  }
+  if (virtpc == NULL)
+    return;
+  asm volatile("isb");
+  ((void (*)(unsigned long))virtpc)(ptr);
 }
 
 extern inline void *memset(void *p, int c, size_t size)
@@ -139,7 +136,7 @@ extern inline void *memset(void *p, int c, size_t size)
 extern inline void *memalign(size_t align, size_t size)
 {
   while (((size_t)top_of_mem) & (align - 1))
-    top_of_mem++;
+    top_of_mem += align - ((unsigned long)top_of_mem & (align - 1));
 
   void *ret = top_of_mem;
   top_of_mem += size;
