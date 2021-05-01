@@ -1,0 +1,5 @@
+#!/bin/sh
+/bin/sh
+mkdir /mnt
+/bin/busybox mount /dev/nvme0n1p4 /mnt
+exec /bin/busybox switch_root /mnt /sbin/init
