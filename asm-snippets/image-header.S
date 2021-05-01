@@ -28,6 +28,7 @@ bootargs:
 	.endr
 stack:
 
+	/* XXX: remove the framebuffer code here */
 1:
 	mov x1, #0xbd
 	lsl x1, x1, #12
