@@ -27,25 +27,4 @@ bootargs:
 	.byte 0
 	.endr
 stack:
-
-	/* XXX: remove the framebuffer code here */
-1:
-	mov x1, #0xbd
-	lsl x1, x1, #12
-	add x1, x1, #0xf44
-	lsl x1, x1, #16
-	add x1, x1, #0x8000
-	mov w0, #0xff00
-0:
-	str w0, [x1, #0x00]
-	str w0, [x1, #0x04]
-	str w0, [x1, #0x08]
-	str w0, [x1, #0x0c]
-	add x1, x1, #16
-	mov x1, #0xbe
-	lsl x1, x1, #12
-	add x1, x1, #0x03d
-	lsl x1, x1, #16
-	add x1, x1, #0x8000
-
 	adr x10, bootargs
