@@ -7,15 +7,12 @@
 	.quad 0
 	.quad 0
 	.ascii "ARMd"
-	.long 0
+	.long 0xe
 primary_entry:
-	nop
+	isb
 	b 1f
-	.globl argdummy
-argdummy:
-	.quad 0x806640000 // bootargs argument, to be fixed by code
-	adr x1, argdummy
-	str x0, [x1]
+bootargs:
+	.quad 0xd1e7d1e7d1e7d1e7 // bootargs argument, to be fixed by code
 1:
 	adr x1, stack
 	sub x1, x1, #16
