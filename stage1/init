@@ -15,4 +15,5 @@ ls -l /boot/fdt
 # perl /copy-fdt-props.pl
 
 /bin/kexec -fix /boot/Image --dtb=/boot/fdt
+/bin/kexec -fix /Image --dtb=/boot/fdt
 
