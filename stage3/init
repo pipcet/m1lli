@@ -1,0 +1,70 @@
+#!/bin/sh
+/bin/busybox mount -t proc proc proc
+/bin/busybox mount -t sysfs sys sys
+/bin/busybox mount -t configfs configfs sys/kernel/config
+# /bin/busybox sh
+# /bin/kexec -xsf /boot/Image --dtb=/sys/firmware/fdt
+tar xzvf /perl.tar.gz
+tar xvf /m1lli-scripts.tar
+perl /copy-fdt-props.pl
+/bin/busybox cat /proc/devices | while read NUM NAME; do if [ "$NAME" = "ttyGS" ]; then /bin/busybox mknod /dev/ttyGS0 c $NUM 0; fi; done
+/bin/busybox mkdir /sys/kernel/config/usb_gadget/G1
+/bin/busybox echo 0x2 > /sys/kernel/config/usb_gadget/G1/bDeviceClass
+/bin/busybox echo 0x100 > /sys/kernel/config/usb_gadget/G1/bcdDevice
+/bin/busybox echo 0x200 > /sys/kernel/config/usb_gadget/G1/bcdUSB
+/bin/busybox echo 0x40 > /sys/kernel/config/usb_gadget/G1/bMaxPacketSize0
+/bin/busybox mkdir /sys/kernel/config/usb_gadget/G1/strings/0x409
+/bin/busybox echo 0x6666 > /sys/kernel/config/usb_gadget/G1/strings/0x409/product
+/bin/busybox echo 0x6666 > /sys/kernel/config/usb_gadget/G1/strings/0x409/manufacturer
+/bin/busybox echo 0x6666 > /sys/kernel/config/usb_gadget/G1/strings/0x409/serialnumber
+/bin/busybox echo 0x1337 > /sys/kernel/config/usb_gadget/G1/idVendor
+/bin/busybox echo 0xbeef > /sys/kernel/config/usb_gadget/G1/idProduct
+/bin/busybox mkdir /sys/kernel/config/usb_gadget/G1/strings/0x409
+/bin/busybox echo 0x6666 > /sys/kernel/config/usb_gadget/G1/strings/0x409/serialnumber
+/bin/busybox echo pipcet@gmail.com > /sys/kernel/config/usb_gadget/G1/strings/0x409/manufacturer
+/bin/busybox echo m1lli > /sys/kernel/config/usb_gadget/G1/strings/0x409/product
+/bin/busybox mkdir /sys/kernel/config/usb_gadget/G1/configs/c.1
+/bin/busybox mkdir /sys/kernel/config/usb_gadget/G1/configs/c.1/strings/0x409
+/bin/busybox echo -ne '\x09\x02\x35\x00\x02\x01\x00\xc0\xfa\x09\x04\x00\x00\x01\x02\x02\x00\x00\x05\x24\x06\x00\x01\x07\x05\x81\x03\x80\x00\x0a\x09\x04\x01\x00\x02\x0a\x00\x00\x00\x07\x05\x02\x02\x00\x02\x0a\x07\x05\x82\x02\x00\x02\x0a' > /sys/kernel/config/usb_gadget/G1/configs/c.1/strings/0x409/configuration
+/bin/busybox mkdir /sys/kernel/config/usb_gadget/G1/functions/acm.usb0
+
+# /bin/busybox mkdir /sys/kernel/config/usb_gadget/G1/configs/c.2
+# /bin/busybox mkdir /sys/kernel/config/usb_gadget/G1/configs/c.2/strings/0x409
+# /bin/busybox echo -ne '\x09\x02\x35\x00\x02\x01\x00\xc0\xfa\x09\x04\x00\x00\x01\x02\x02\x00\x00\x05\x24\x06\x00\x01\x07\x05\x81\x03\x80\x00\x0a\x09\x04\x01\x00\x02\x0a\x00\x00\x00\x07\x05\x02\x02\x00\x02\x0a\x07\x05\x82\x02\x00\x02\x0a' > /sys/kernel/config/usb_gadget/G1/configs/c.2/strings/0x409/configuration
+/bin/busybox mkdir /sys/kernel/config/usb_gadget/G1/functions/eem.usb0
+
+# /bin/busybox mkdir /sys/kernel/config/usb_gadget/G1/configs/c.3
+# /bin/busybox mkdir /sys/kernel/config/usb_gadget/G1/configs/c.3/strings/0x409
+# /bin/busybox echo -ne '\x09\x02\x35\x00\x02\x01\x00\xc0\xfa\x09\x04\x00\x00\x01\x02\x02\x00\x00\x05\x24\x06\x00\x01\x07\x05\x81\x03\x80\x00\x0a\x09\x04\x01\x00\x02\x0a\x00\x00\x00\x07\x05\x02\x02\x00\x02\x0a\x07\x05\x82\x02\x00\x02\x0a' > /sys/kernel/config/usb_gadget/G1/configs/c.3/strings/0x409/configuration
+
+/bin/busybox mkdir /sys/kernel/config/usb_gadget/G1/functions/mass_storage.usb0
+(cd /sys/kernel/config/usb_gadget/G1; /bin/busybox ln -s functions/acm.usb0 configs/c.1; /bin/busybox ln -s functions/eem.usb0 configs/c.1; /bin/busybox ln -s functions/mass_storage.usb0 configs/c.1)
+/bin/busybox echo 502280000.dwc3 > /sys/kernel/config/usb_gadget/G1/UDC
+/bin/busybox sleep 1
+echo "restarting dwc3"
+(cd /sys/bus/platform/drivers/dwc3;
+ /bin/busybox echo 502280000.dwc3 > unbind;
+ /bin/busybox sleep 1
+ /bin/busybox echo 502280000.dwc3 > bind)
+while /bin/busybox true; do
+    /bin/busybox tee /dev/console < /dev/ttyGS0 | /bin/busybox sh | /bin/busybox tee /dev/console > /dev/ttyGS0
+done &
+/bin/busybox dd if=/dev/zero of=/commfile bs=1M count=128
+dd if=/sys/firmware/fdt of=/commfile conv=notrunc
+/bin/busybox echo /commfile > /sys/kernel/config/usb_gadget/G1/functions/mass_storage.usb0/lun.0/file
+while /bin/busybox true; do
+    /bin/commfile;
+done &
+/bin/busybox md5sum /boot/fdt
+dtc -I dtb -O dts /sys/firmware/fdt > /fdt.dts # XXX do this in advance
+perl /fdt-to-props.pl /fdt.dts | grep 'reserved-memory' > /new-reserved-memory # XXX ditto
+dtc -I dtb -O dts /boot/fdt > /boot/fdt.dts
+(perl /fdt-to-props.pl /boot/fdt.dts | grep -v 'reserved-memory'; cat /new-reserved-memory) | perl props-to-fdt.pl > /boot/fdt.dts.new && /bin/busybox mv /boot/fdt.dts.new /boot/fdt.dts
+dtc -I dts -O dtb /boot/fdt.dts > /boot/fdt
+ls -l /boot/fdt
+(/bin/busybox sleep 1m && ! test -e /noboot && /bin/kexec -fix /boot/Image --dtb=/sys/firmware/fdt) &
+(/bin/busybox sleep 30 && /bin/busybox reboot) &
+read; touch /noboot
+while /bin/busybox true; do
+    /bin/busybox ash
+done
