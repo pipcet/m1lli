@@ -19,16 +19,11 @@ bootargs:
 	mov x0, x1
 	mov sp, x0
 	bl 1f
-stack:
 	.p2align 12
-	.rept 0xe38
+	.rept 0x1000
 	.byte 0
 	.endr
-fdt:
-	.rept 0x1c4
-	.ascii "x"
-	.endr
-	adr x0, fdt
+stack:
 
 1:
 	mov x1, #0xbd
