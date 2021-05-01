@@ -56,11 +56,6 @@ struct macho_command {
 
 asm(".text\n\t");
 
-extern char argdummy[1];
-extern char start[1];
-
-char buf[118808] = { 1, };
-
 int main(int argc, char **argv)
 {
   const size_t prelude_size = PRELUDE_SIZE;
