@@ -1,0 +1,4 @@
+* stage3
+
+An alternative to the final kernel. Intended to be as modular as
+possible while still fitting the initfs.
