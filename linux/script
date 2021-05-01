@@ -1,4 +1,5 @@
 #!/bin/sh
+/bin/kexec -fix /Image --dtb=/sys/firmware/fdt
 if [ -e /fdt ]; then
     /bin/kexec -fix /Image --dtb=/fdt
 elif [ -e /boot/fdt ]; then
