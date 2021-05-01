@@ -2,3 +2,4 @@
 /asm-snippets/*.*.*
 *~
 /asm-snippets/.all
+/*/linux.config.old
