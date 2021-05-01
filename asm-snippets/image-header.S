@@ -14,6 +14,10 @@ primary_entry:
 bootargs:
 	.quad 0xd1e7d1e7d1e7d1e7 // bootargs argument, to be fixed by code
 1:
+	cbnz x0, 2f
+	adr x0, bootargs
+	str x1, [x0]
+2:
 	adr x1, stack
 	sub x1, x1, #16
 	mov x0, x1
