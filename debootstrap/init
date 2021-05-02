@@ -2,6 +2,7 @@
 mount -t proc proc proc
 mount -t devtmpfs dev dev
 mount -t sysfs sys sys
+/bin/sh
 /debootstrap/debootstrap --second-stage
 (echo x; echo x) | passwd root
 exec /sbin/init
