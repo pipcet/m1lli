@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+my @path = ();
 while (<>) {
     next if /^\//;
     chomp;
@@ -6,8 +7,14 @@ while (<>) {
     if (/^};/) {
 	pop @path;
     } elsif (/^(.*) {/) {
-	push @path, $1;
+	push @path, "$1.";
     } elsif (/^(.*?) = (.*);$/) {
-	print join(".", @path) . ".$1 = $2\n";
+	print join("", @path) . "$1 = $2\n";
+    } elsif (/^(.*?);$/) {
+	print join("", @path) . "$1\n";
+    } elsif (/^[ \t]*$/) {
+    } else {
+	warn "bad line $_";
+	sleep(1);
     }
 }
