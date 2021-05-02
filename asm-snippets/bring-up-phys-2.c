@@ -499,8 +499,8 @@ enum dwc3_link_state {
 #define DWC3_DEPCFG_FIFO_BASED          BIT(31)
 
 #endif /* __DRIVERS_USB_DWC3_CORE_H */
-void bring_up_phys(void)
-{
+#include "snippet.h"
+START_SNIPPET {
 #if 0
     *(volatile uint32_t *)0x382a90008 = 0x1c1000f;
     *(volatile uint32_t *)0x382a90004 = 3;
@@ -541,4 +541,4 @@ void bring_up_phys(void)
 	/* disable unused features */
 	clear32(addr + DWC3_GCTL, DWC3_GCTL_SCALEDOWN_MASK | DWC3_GCTL_DISSCRAMBLE);
     }
-}
+} END_SNIPPET
