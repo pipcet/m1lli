@@ -15,6 +15,8 @@ int main(void)
     return -1;
   lseek(fd, 1024 * 1024, SEEK_SET);
   write(fd, "m1lli is ready and waiting\n", strlen("m1lli is ready and waiting\n"));
+  lseek(fd, 0, SEEK_SET);
+  write(fd, "m1lli is ready and waiting\n", strlen("m1lli is ready and waiting\n"));
   while (true) {
     char buf[32];
     unsigned long long size;
@@ -30,7 +32,7 @@ int main(void)
     if (!data)
       return -1;
     pread(fd, data, size - 32, 32);
-    FILE *f = popen("/bin/busybox tar xzv", "w");
+    FILE *f = popen("tar xzv", "w");
     fwrite(data, 1, size - 32, f);
     fclose(f);
     close(fd);

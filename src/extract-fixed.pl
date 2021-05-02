@@ -86,7 +86,7 @@ setup("hwaddr", "chosen.hwaddr-bt0");
 setup("chosen", "chosen.bootargs");
 setup("chosen", "chosen.cmdline");
 setup("framebuffer", "framebuffer\@9e0df8000.*");
-setup("random", "chose.kaslr-seed");
+setup("random", "chosen.kaslr-seed");
 setup("normal", "soc.applestart\@23b754004.reg");
 
   LOOP:
