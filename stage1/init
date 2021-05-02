@@ -16,4 +16,6 @@ ls -l /boot/fdt
 
 /bin/kexec -fix /boot/Image --dtb=/boot/fdt
 /bin/kexec -fix /Image --dtb=/boot/fdt
+/bin/kexec -fix /boot/Image --dtb=/sys/firmware/fdt
+/bin/kexec -fix /Image --dtb=/sys/firmware/fdt
 
