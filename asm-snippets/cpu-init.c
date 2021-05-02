@@ -36,8 +36,9 @@ void cpuinit(void) __attribute__((section(".text")));
 #define mrs(reg) ({ long x; asm volatile("mrs %0," STR(reg) : "=r" (x)); x; })
 #define msrs(reg,clr,set) msr(reg,(mrs(reg)|(set)) &~ (clr))
 
-void cpuinit_cluster_0(void)
-{
+#include "snippet.h"
+
+START_SNIPPET {
   msr(oslar_el1, 0);
   msr(s3_6_c15_c1_0, 1);
   asm volatile("tlbi vmalle1");
@@ -104,4 +105,4 @@ void cpuinit_cluster_0(void)
     msrs(SR_H13_CYC_CFG, 0, 0xc);
     msrs(SR_H13_LLC_ERR_STS, ~0LL, 0);
   }
-}
+} END_SNIPPET
