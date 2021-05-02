@@ -58,9 +58,9 @@ dtc -I dtb -O dts /sys/firmware/fdt > /fdt.dts
 perl /fdt-to-props.pl /fdt.dts > /fdt.dtp
 perl /fdt-to-props.pl /fdt.dts | grep 'reserved-memory' > /new-reserved-memory
 dtc -I dtb -O dts /boot/fdt > /boot/fdt.dts # do this in advance
-dtc -I dtb -O dts /boot/stage3.dtb > /boot/stage3.dts
-perl /fdt-to-props.pl /boot/stage3.dts > /boot/stage3.dtp
-(cat /new-reserved-memory; cat /boot/stage3.dtp /boot/tunable.dtp | grep -v 'reserved-memory') > /boot/final.dtp
+dtc -I dtb -O dts /boot/linux.dtb > /boot/linux.dts
+perl /fdt-to-props.pl /boot/linux.dts > /boot/linux.dtp
+(cat /new-reserved-memory; cat /boot/linux.dtp /boot/tunable.dtp | grep -v 'reserved-memory') > /boot/final.dtp
 perl props-to-fdt.pl < /boot/final.dtp > /boot/final.dts
 dtc -I dts -O dtb /boot/final.dts > /boot/fdt
 #(perl /fdt-to-props.pl /boot/fdt.dts | grep -v 'reserved-memory'; cat /new-reserved-memory) | perl props-to-fdt.pl > /boot/fdt.dts.new && /bin/busybox mv /boot/fdt.dts.new /boot/fdt.dts
