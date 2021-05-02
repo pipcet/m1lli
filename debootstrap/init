@@ -3,3 +3,4 @@ mount -t proc proc proc
 mount -t devtmpfs dev dev
 mount -t sysfs sys sys
 /debootstrap/debootstrap --second-stage
+exec /bin/sh
