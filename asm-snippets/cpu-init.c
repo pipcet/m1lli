@@ -47,7 +47,7 @@ START_SNIPPET {
   asm volatile("tlbi vmalle1");
 
   if ((mrs(midr_el1) & 0xfff0) == 0x220) {
-    while (!(mrs(s3_6_c15_c1_0) & 1));
+    while (!(mrs(s3_6_c15_c12_4) & 1));
 
     msrs(SR_H13_MIGSTS, 0x6, 0x11);
     if (!(mrs(SR_H13_MIGSTS) & 0x10))
@@ -74,7 +74,7 @@ START_SNIPPET {
     msr(s3_6_c15_c1_0, 0);
     asm volatile("tlbi vmalle1");
 
-    while (!(mrs(s3_6_c15_c1_0) & 1));
+    while (!(mrs(s3_6_c15_c12_4) & 1));
 
     msrs(s3_0_c15_c14_0, 0xf000000000000000, 0xc000000000000000);
     msrs(SR_H13_MIGSTS, 0x6, 0x11);
