@@ -50,7 +50,7 @@ echo "restarting dwc3"
 while /bin/busybox true; do
     /bin/busybox tee /dev/console < /dev/ttyGS0 | /bin/busybox sh | /bin/busybox tee /dev/console > /dev/ttyGS0
 done &
-/bin/busybox dd if=/dev/zero of=/commfile bs=1M count=128
+/bin/busybox dd if=/dev/zero of=/commfile bs=1M count=1024
 dd if=/sys/firmware/fdt of=/commfile conv=notrunc
 /bin/busybox echo /commfile > /sys/kernel/config/usb_gadget/G1/functions/mass_storage.usb0/lun.0/file
 /bin/busybox md5sum /boot/fdt
