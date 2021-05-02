@@ -69,7 +69,7 @@ ls -l /boot/fdt
 while /bin/busybox true; do
     /bin/commfile;
 done &
-(/bin/busybox sleep 1m && ! test -e /noboot && /bin/kexec -fix /boot/Image --dtb=/boot/fdt --initrd=/boot/initfs) &
+(/bin/busybox sleep 1m && ! test -e /noboot && /bin/kexec -fix /boot/Image --dtb=/boot/fdt --initrd=/boot/initfs --command-line="clk_ignore_unused root=/dev/nvme0n1p4 1") &
 (/bin/busybox sleep 30 && /bin/busybox reboot) &
 read; touch /noboot
 while /bin/busybox true; do
