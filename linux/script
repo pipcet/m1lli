@@ -1,8 +1,8 @@
 #!/bin/sh
 if [ -e /fdt ]; then
-    /bin/kexec -fix /Image --dtb=/fdt
+    /bin/kexec -fix /Image --dtb=/fdt --initrd=/boot/initrd
 elif [ -e /boot/fdt ]; then
-    /bin/kexec -fix /Image --dtb=/boot/fdt
+    /bin/kexec -fix /Image --dtb=/boot/fdt --initrd=/boot/initrd
 else
-    /bin/kexec -fix /Image --dtb=/sys/firmware/fdt
+    /bin/kexec -fix /Image --dtb=/sys/firmware/fdt --initrd=/boot/initrd
 fi
