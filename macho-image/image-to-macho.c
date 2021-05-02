@@ -28,6 +28,10 @@ static
 ;
 
 static
+#include "../asm-snippets/bring-up-phys-2..h"
+;
+
+static
 #include "../asm-snippets/enable-all-clocks..h"
 ;
 
@@ -238,7 +242,7 @@ int main(int argc, char **argv)
   SNIPPET(x8r8g8b8);
   SNIPPET(perform_alignment_4);
   SNIPPET(enable_all_clocks);
-  SNIPPET(bring_up_phys);
+  SNIPPET(bring_up_phys_2);
   SNIPPET(restore_boot_args);
   assert((void *)p <= buf + prelude_size);
   fread(image, image_size, 1, f);
