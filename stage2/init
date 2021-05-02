@@ -53,9 +53,6 @@ done &
 /bin/busybox dd if=/dev/zero of=/commfile bs=1M count=128
 dd if=/sys/firmware/fdt of=/commfile conv=notrunc
 /bin/busybox echo /commfile > /sys/kernel/config/usb_gadget/G1/functions/mass_storage.usb0/lun.0/file
-while /bin/busybox true; do
-    /bin/commfile;
-done &
 /bin/busybox md5sum /boot/fdt
 dtc -I dtb -O dts /sys/firmware/fdt > /fdt.dts
 perl /fdt-to-props.pl /fdt.dts > /fdt.dtp
@@ -69,7 +66,9 @@ dtc -I dts -O dtb /boot/final.dts > /boot/fdt
 #(perl /fdt-to-props.pl /boot/fdt.dts | grep -v 'reserved-memory'; cat /new-reserved-memory) | perl props-to-fdt.pl > /boot/fdt.dts.new && /bin/busybox mv /boot/fdt.dts.new /boot/fdt.dts
 #dtc -I dts -O dtb /boot/fdt.dts > /boot/fdt
 ls -l /boot/fdt
-diff -u /boot/final.dtp /fdt.dtp
+while /bin/busybox true; do
+    /bin/commfile;
+done &
 (/bin/busybox sleep 1m && ! test -e /noboot && /bin/kexec -fix /boot/Image --dtb=/sys/firmware/fdt) &
 (/bin/busybox sleep 30 && /bin/busybox reboot) &
 read; touch /noboot
