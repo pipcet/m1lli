@@ -88,11 +88,8 @@ void boot_macho_init(void)
   memset(top_of_mem, (count^=0xff), 10240 * 1600);
   void *dest = memalign(1, vmtotalsize);
   dest = top_of_mem;
-  memset(0xbdf438000, 0, 2500 * 1600 * 4);
-#if 0
   for (size_t count = 0; count < vmtotalsize; count++)
     ((char*)dest)[count] = 0;
-#endif
   void *virtpc = NULL;
   command = ((void *)header) + 32;
   while ((void *)command < last_command) {
