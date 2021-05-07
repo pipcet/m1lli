@@ -26,6 +26,10 @@ static
 #include "../asm-snippets/image-header..h"
 ;
 
+static
+#include "../asm-snippets/disable-timers..h"
+;
+
 struct macho_header {
     u32 irrelevant[5];
     u32 cmdsize;
@@ -83,6 +87,8 @@ int main(int argc, char **argv)
   memcpy(p, image_header, sizeof(image_header));
   p += sizeof(image_header);
   *((unsigned long *)p + 2) = prelude_size + macho_size;
+  memcpy(p, disable_timers, sizeof(disable_timers));
+  p += sizeof(disable_timers);
   memcpy(p, macho_boot, sizeof(macho_boot));
   p += sizeof(macho_boot);
 
