@@ -1,0 +1,9 @@
+#!/bin/sh
+CMDLINE="clk_ignore_unused"
+if [ -e /fdt ]; then
+    /bin/kexec -fix /Image --dtb=/fdt --initrd=/boot/initfs --command-line=$CMDLINE
+elif [ -e /boot/fdt ]; then
+    /bin/kexec -fix /Image --dtb=/boot/fdt --initrd=/boot/initfs --command-line=$CMDLINE
+else
+    /bin/kexec -fix /Image --dtb=/sys/firmware/fdt --initrd=/boot/initfs --command-line=$CMDLINE
+fi
