@@ -18,7 +18,7 @@
 
 	memory@800000000 {
 		device_type = "memory";
-		reg = <0x08 0x00 0x04 0x00>;
+		reg = <0x08 0x00 0x01 0x00>;
 	};
 
 	framebuffer@9e0df8000 {
@@ -64,6 +64,11 @@
 
 		kmem@800000000 {
 			reg = "kmemgoeshere!!!";
+			no-map;
+		};
+
+		base@800000000 {
+			reg = "basegoeshere!!!";
 			no-map;
 		};
 	};
@@ -773,6 +778,60 @@
 			phandle = <0x33>;
 		};
 
+		aop_mbox@24a400000 {
+			compatible = "apple,iop-mailbox-m1";
+			reg = <0x02 0x4a400000 0x00 0x20000>;
+			interrupts = <0x00 285 0x04 0x00 288 0x04>;
+			#mbox-cells = <0x01>;
+			endpoints = <0x20>;
+			debug-trace;
+		};
+
+		pmp_mbox@23bc00000 {
+			compatible = "apple,iop-mailbox-m1";
+			reg = <0x02 0x3bc00000 0x00 0x20000>;
+			interrupts = <0x00 511 0x04 0x00 514 0x04>;
+			#mbox-cells = <0x01>;
+			endpoints = <0x20>;
+			debug-trace;
+		};
+
+		sio_mbox@236400000 {
+			compatible = "apple,iop-mailbox-m1";
+			reg = <0x02 0x36400000 0x00 0x20000>;
+			interrupts = <0x00 640 0x04 0x00 643 0x04>;
+			#mbox-cells = <0x01>;
+			endpoints = <0x20>;
+			debug-trace;
+		};
+
+		sep_mbox@242400000 {
+			compatible = "apple,iop-mailbox-m1";
+			reg = <0x02 0x42400000 0x00 0x20000>;
+			interrupts = <0x00 253 0x04 0x00 256 0x04>;
+			#mbox-cells = <0x01>;
+			debug-trace;
+			endpoints = <0x20>;
+		};
+
+		dcp_mbox@231c00000 {
+			compatible = "apple,iop-mailbox-m1";
+			reg = <0x02 0x31c00000 0x00 0x20000>;
+			interrupts = <0x00 427 0x04 0x00 430 0x04>;
+			#mbox-cells = <0x01>;
+			debug-trace;
+			endpoints = <0x20>;
+		};
+
+		gfx_asc_mbox@206400000 {
+			compatible = "apple,iop-mailbox-m1";
+			reg = <0x02 0x06400000 0x00 0x20000>;
+			interrupts = <0x00 575 0x04 0x00 578 0x04>;
+			#mbox-cells = <0x01>;
+			debug-trace;
+			endpoints = <0x20>;
+		};
+
 		smc@23e050000 {
 			compatible = "apple,smc-m1";
 			reg = <0x02 0x3e050000 0x00 0x4000>;
@@ -900,12 +959,35 @@
 			cs-gpios = <0x0c 0x18 0x00>;
 			#address-cells = <0x01>;
 			#size-cells = <0x00>;
+		};
 
-			unknown@0 {
+		spi@235100000 {
+			compatible = "apple,spi-mc-m1";
+			reg = <0x02 0x35100000 0x00 0x4000>;
+			interrupts = <0x00 614 0x04>;
+			clocks = <0x3e>;
+			cs-gpios = <0x0c 0x00 0x00>;
+			#address-cells = <0x01>;
+			#size-cells = <0x00>;
+
+			spidev@0 {
 				compatible = "spidev";
-				reg = <0>;
-				spi-max-frequency = <2000000>;
+				reg = <0x00>;
+				interrupts = <0x00 0xc2 0x02>;
+				spien-gpios = <0x0c 0x8b 0x00>;
 			};
+
+/*
+			keyboard2@0 {
+				compatible = "input,applespi-kbd-v1";
+				reg = <0x00>;
+				spi-max-frequency = <120000>;
+				irq-gpios = <0x0c 0xc2 0x00>;
+				interrupt-parent = <0x0c>;
+				interrupts = <0x00 0xc2 0x02>;
+				spien-gpios = <0x0c 0x8b 0x00>;
+			};
+			*/
 		};
 
 		ans_clk@23b7003f0 {

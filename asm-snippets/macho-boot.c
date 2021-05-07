@@ -55,6 +55,8 @@ void boot_macho_init(void)
 {
   unsigned long ptr = *(long *)arg;
   unsigned long flags;
+  unsigned long base;
+  asm volatile("adr %0, ." : "=r" (base));
   top_of_mem = (void *)0x880000000;
   volatile void * volatile start = ((void *)arg) - 0x48 + 256 * 1024;
   struct macho_header *header = start;
@@ -120,7 +122,7 @@ void boot_macho_init(void)
   if (virtpc == NULL)
     return;
   asm volatile("isb");
-  ((void (*)(unsigned long))virtpc)(ptr);
+  ((void (*)(unsigned long, unsigned long))virtpc)(ptr, base);
 }
 
 extern inline void *memset(void *p, int c, size_t size)

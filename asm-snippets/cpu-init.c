@@ -42,7 +42,7 @@ START_SNIPPET {
   msr(oslar_el1, 0);
   msr(s3_6_c15_c1_0, 1);
   asm volatile("tlbi vmalle1");
-  msr(s3_6_c15_c1_6, 0x2020a505f020f0f0);
+  msr(s3_6_c15_c1_6, 0x2020a505f020f0f0/* or a506! */);
   msr(s3_6_c15_c1_0, 0);
   asm volatile("tlbi vmalle1");
 
