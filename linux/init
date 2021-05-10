@@ -6,6 +6,6 @@ mkdir /mnt
 /bin/busybox mount /dev/nvme0n1p4 /mnt
 cp modules/*.ko /mnt
 /bin/busybox sync
-while sleep 1; do cat /sys/class/power_supply/Apple*/energy_now; done &
+while sleep 1; do cat /sys/class/power_supply/smc_battery/energy_now; done &
 /bin/sh
 exec /bin/busybox switch_root /mnt /sbin/init
