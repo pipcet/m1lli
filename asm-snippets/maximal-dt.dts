@@ -38,12 +38,11 @@
 		ranges;
 
 		fw_area@800000000 {
-			reg = <0x08 0x00 0x3 0>;
+			reg = <0x08 0x00 0x2 0>;
 		};
 
-		fw_area@800001000 {
-			reg = <0x08 0x00 0x03 0x0>;
-			no-map;
+		fw_area@b00000000 {
+			reg = <0x0b 0x00 0x1 0>;
 		};
 
 		fw_area@9e0000000 {

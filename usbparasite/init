@@ -9,7 +9,7 @@ tar xvf /m1lli-scripts.tar
 while true; do
     for i in $(seq 1 80); do
 	# echo heartbeat > /sys/class/leds/kbd_backlight/trigger
-	memtool mw 0x235044018 128 0
+	memtool mw 0x235044018 0 128
 	memtool mw 0x235044000 0x4239
 	# memtool md 0x23b102000
 	memtool mw 0x23b7001d8 0xf
@@ -17,7 +17,8 @@ while true; do
 	#	cat /proc/interrupts
 	#	cat /proc/iomem
 	sleep .25
-	memtool mw 0x235044018 0 128
+	/bin/scanmem && continue
+	memtool mw 0x235044018 128 0
 	memtool mw 0x235044000 0x4239
 	# memtool md 0x23b102000
 	memtool mw 0x23b7001d8 0xf
@@ -27,6 +28,7 @@ while true; do
 		#cat /proc/iomem
 	sleep .25
 	echo foo
-	memtool mw 0x23d2b0010 1000 0 0 0
+	cat /proc/iomem
+	memtool mw 0x23d2b0010 0xffffffff 0 0 0
     done
 done

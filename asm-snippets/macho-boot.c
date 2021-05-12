@@ -1,12 +1,10 @@
 #include "snippet.h"
 
-void boot_macho_init(void)
+void boot_macho_init(unsigned long long *, unsigned long)
   __attribute__((section(".text")));
 volatile register void *top_of_mem __asm__("x11");
-volatile register unsigned long long *arg __asm__("x10");
 
 START_SNIPPET {
-  boot_macho_init();
 } END_SNIPPET
 
 #include <stddef.h>
@@ -14,8 +12,8 @@ START_SNIPPET {
 typedef unsigned long u64;
 typedef unsigned u32;
 
-extern inline void *memalign(size_t align, size_t size);
-extern inline void *memset(void *p, int c, size_t size);
+static inline void *memalign(size_t align, size_t size);
+static inline void *memset(void *p, int c, size_t size);
 
 #define NULL ((void *)0)
 
@@ -51,14 +49,13 @@ struct macho_command {
   } u;
 } __attribute__((packed));
 
-void boot_macho_init(void)
+void boot_macho_init(unsigned long long *arg, unsigned long original_base)
 {
+  original_base -= 0x2000;
   unsigned long ptr = *(long *)arg;
   unsigned long flags;
-  unsigned long base;
-  asm volatile("adr %0, ." : "=r" (base));
-  top_of_mem = (void *)0x880000000;
-  volatile void * volatile start = ((void *)arg) - 0x48 + 256 * 1024;
+  top_of_mem = (void *)0xb00000000;
+  void * volatile start = ((void *)arg) - 0x48 + 256 * 1024;
   struct macho_header *header = start;
   struct macho_command *command = ((void *)header) + 32;
   void *last_command = ((void *)command) + header->cmdsize;
@@ -102,11 +99,9 @@ void boot_macho_init(void)
       u64 fileoff = command->u.segment_64.fileoff;
       u64 filesize = command->u.segment_64.filesize;
       u64 pcoff = pc - vmaddr;
-      if (vmsize > 32 * 1024 * 1024)
-	break;
 
       for (size_t count = 0; count < vmsize; count++)
-	//((char *)0xbdf438000)[(vmaddr - vmin + count) % (2560*1600*4)] =
+	///((char *)0xbdf438000)[(vmaddr - vmin + count) % (2560*1600*4)] =
 	  ((char*)dest)[vmaddr - vmin + count] =
 	  ((char *)start)[fileoff + count];
       if (pcoff < vmsize) {
@@ -122,17 +117,17 @@ void boot_macho_init(void)
   if (virtpc == NULL)
     return;
   asm volatile("isb");
-  ((void (*)(unsigned long, unsigned long))virtpc)(ptr, base);
+  ((void (*)(unsigned long, unsigned long))virtpc)(ptr, original_base);
 }
 
-extern inline void *memset(void *p, int c, size_t size)
+static inline void *memset(void *p, int c, size_t size)
 {
   char *p2 = p;
   while (size--) *p2++ = c;
   return p;
 }
 
-extern inline void *memalign(size_t align, size_t size)
+static inline void *memalign(size_t align, size_t size)
 {
   while (((size_t)top_of_mem) & (align - 1))
     top_of_mem += align - ((unsigned long)top_of_mem & (align - 1));

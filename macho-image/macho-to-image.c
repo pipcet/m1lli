@@ -85,17 +85,16 @@ int main(int argc, char **argv)
 
   void *p = buf;
   memcpy(p, image_header, sizeof(image_header));
-  p += sizeof(image_header);
   *((unsigned long *)p + 2) = prelude_size + macho_size;
-  memcpy(p, disable_timers, sizeof(disable_timers));
-  p += sizeof(disable_timers);
+  p += sizeof(image_header);
+  //memcpy(p, disable_timers, sizeof(disable_timers));
+  //p += sizeof(disable_timers);
   memcpy(p, macho_boot, sizeof(macho_boot));
   p += sizeof(macho_boot);
 
   void *macho = buf + prelude_size;
   assert(p <= macho);
 
-  *(uint64_t *)(buf + 0x10) = prelude_size + macho_size;
   fread(macho, macho_size, 1, f);
   fclose(f);
   f = fopen(argv[2], "w");
