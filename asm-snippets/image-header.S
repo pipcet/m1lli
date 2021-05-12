@@ -12,11 +12,10 @@ primary_entry:
 	isb
 	b 1f
 bootargs:
-	.quad 0xd1e7d1e7d1e7d1e7 // bootargs argument, to be fixed by code
+	.quad 0 // bootargs argument, to be fixed by code
+original_base:
+	.quad 0
 1:
-	cbnz x0, 2f
-	adr x0, bootargs
-	str x1, [x0]
 2:
 	adr x1, stack
 	sub x1, x1, #16
@@ -28,4 +27,5 @@ bootargs:
 	.endr
 stack:
 1:
-	adr x10, bootargs
+	adr x0, bootargs
+	ldr x1, original_base
