@@ -23,8 +23,9 @@ void fadescreen(void)
   sctlr &= ~(0x1L);
   asm volatile("msr SCTLR_EL1, %0" : : "r" (sctlr));
   asm volatile("msr DAIF, %0" : : "r" (0x3c0L));
-  asm volatile("msr VBAR_EL1, %0" : : "r" (0xa00000000));
-  udelay(24 * 1000000000L);
-  unsigned long x0 = *(unsigned long *)0xb20000000;
-  return ((void (*)(unsigned long))0xb20010800)(x0);
+  asm volatile("msr VBAR_EL1, %0" : : "r" (0xac0010000));
+  //udelay(24 * 1000000000L);
+  udelay(12 * 1000000000L);
+  unsigned long x0 = *(unsigned long *)0xac0000000;
+  return ((void (*)(unsigned long, unsigned long))0xac0010800)(x0, 0);
 }
