@@ -7,7 +7,7 @@
 	str	x1, [x0]
 	//add	x0,x0,#-8
 	//	mrs	x1,vbar_el1
-	mrs	x1,ttbr1_el3
+	mrs	x1,ttbr1_el1
 	ldp	x0,x1,[sp]
 	add	sp,sp,16
 	b	0b - . + 0xc03110 - 0xc02080
