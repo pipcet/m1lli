@@ -55,7 +55,7 @@ int main(void)
       case 'C': {
 	unsigned long addr = page[3];
 	FILE *stream = popen((char *)(page + 1024), "r");
-	page[3] = fread((void *)(page + 1024), 8192, 1, stream);
+	page[3] = fread((void *)(page + 1024), 1, 8192, stream);
 	pclose(stream);
 	page[4] = 0;
 	goto again;
