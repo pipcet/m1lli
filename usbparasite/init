@@ -6,17 +6,18 @@ mount -t configfs configfs sys/kernel/config
 tar xzvf /perl.tar.gz
 tar xvf /m1lli-scripts.tar
 
-sleep 1m
-
-echo 9616162816 0 > /mmio-map
+touch /mmio-map
 
 touch /start-wait4mmio
 pt init > pt-init-log
 
+sleep 10
+
+(while true; do /bin/scanmem; done) &
+
 while true; do
     for i in $(seq 1 80); do
 	sleep 2
-	memtool mw 0x23d2b000c 3
 	memtool mw 0x23d2b0010 0 0xffffffff 0 0
 	# echo heartbeat > /sys/class/leds/kbd_backlight/trigger
 	memtool mw 0x235044018 0 128
@@ -26,7 +27,6 @@ while true; do
 	memtool mw 0x23b7001e0 0xf
 	# #	cat /proc/interrupts
 	# #	cat /proc/iomem
-	/bin/scanmem && continue
 	memtool mw 0x23d2b0010 0 0xffffffff 0 0
 	sleep 2
 	memtool mw 0x235044018 128 0
