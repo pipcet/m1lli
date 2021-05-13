@@ -24,7 +24,7 @@ bool simulate_insn(unsigned long frame, unsigned insn,
 
   int t = (insn & 31);
   if ((insn & 0xffe00c00) == 0xb8200800) { /* 32-bit STR (register) */
-    printf("writing %08lx to %016lx (frame %016lx, index %d)\n", read_reg(frame, t, level0), pa, frame, t);
+    printf("[%16ld] %016lx <- %08lx\n", (long)time(NULL), pa, read_reg(frame, t, level0));
 #if 0
     return false;
 #else
@@ -32,13 +32,12 @@ bool simulate_insn(unsigned long frame, unsigned insn,
     return true;
 #endif
   } else if ((insn & 0xffe00c00) == 0xb8600800) { /* LDR (register) */
-    printf("reading from %016lx\n", pa);
     u64 val = read32(pa);
-    printf("reading from %016lx: %08lx\n", pa, val);
+    printf("[%16ld] %016lx -> %08lx\n", (long)time(NULL), pa, val);
     write_reg(frame, t, val, level0);
     return true;
   } else if ((insn & 0xffe00000) == 0xb9000000) { /* STR (unsigned offset) */
-    printf("writing %08lx to %016lx (frame %016lx, index %d)\n", read_reg(frame, t, level0), pa, frame, t);
+    printf("[%16ld] %016lx <- %016lx\n", (long)time(NULL), pa, read_reg(frame, t, level0));
 #if 0
     return false;
 #else
@@ -46,15 +45,13 @@ bool simulate_insn(unsigned long frame, unsigned insn,
     return true;
 #endif
   } else if ((insn & 0xffe00000) == 0xb9400000) { /* LDR (unsigned offset) */
-    printf("reading from %016lx\n", pa);
     u64 val = read32(pa);
-    printf("reading from %016lx: %08lx\n", pa, val);
+    printf("[%16ld] %016lx -> %016lx\n", (long)time(NULL), pa, val);
     write_reg(frame, t, val, level0);
     return true;
   }
   return false;
   if ((insn & 0xffe00c00) == 0xb8000400) { /* STR (post-index) */
-    printf("writing %08lx to %016lx\n", read_reg(frame, t, level0), pa);
     write32(pa, read_reg(frame, t, level0));
   } else if ((insn & 0xffe00c00) == 0xb8000c00) { /* STR (pre-index) */
     write32(pa, read_reg(frame, t, level0));
@@ -175,6 +172,7 @@ int main(void)
 	}
 	unsigned long level3 = read64(level2 + off2 * 8) & 0xfffffff000;
 	if (success) {
+#if 0
 	  printf("FAR %016lx ELR %016lx ESR %016lx insn %08x\n", far, elr, esr,
 		 insn);
 
@@ -184,6 +182,7 @@ int main(void)
 
 	  fprintf(stderr, "PA %016lx\n", level3);
 	  fflush(stderr);
+#endif
 	}
       } while (0);
     }
