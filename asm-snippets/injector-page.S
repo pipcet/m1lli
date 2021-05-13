@@ -1,4 +1,11 @@
+	ldp x0, x1, [sp]
+	add sp, sp, 16
+	stp x30, x0, [sp, #-16]!
 	stp x28, x29, [sp, #-16]!
+	stp x26, x27, [sp, #-16]!
+	stp x24, x25, [sp, #-16]!
+	stp x22, x23, [sp, #-16]!
+	stp x20, x21, [sp, #-16]!
 	stp x18, x19, [sp, #-16]!
 	stp x16, x17, [sp, #-16]!
 	stp x14, x15, [sp, #-16]!
@@ -34,12 +41,21 @@
 	add sp, sp, #16
         ldp x18, x19, [sp]
 	add sp, sp, #16
+        ldp x20, x21, [sp]
+	add sp, sp, #16
+        ldp x22, x23, [sp]
+	add sp, sp, #16
+        ldp x24, x25, [sp]
+	add sp, sp, #16
+        ldp x26, x27, [sp]
+	add sp, sp, #16
         ldp x28, x29, [sp]
+	add sp, sp, #16
+        ldr x30, [sp]
 	add sp, sp, #16
 
 	ldp x29, x30, [sp]
-	ldp x0, x1, [sp, #16]
-	add sp, sp, #0x20
+	add sp, sp, #0x10
 	eret
 3:
 	ldp x0, x1, [sp]
@@ -62,7 +78,17 @@
 	add sp, sp, #16
         ldp x18, x19, [sp]
 	add sp, sp, #16
+        ldp x20, x21, [sp]
+	add sp, sp, #16
+        ldp x22, x23, [sp]
+	add sp, sp, #16
+        ldp x24, x25, [sp]
+	add sp, sp, #16
+        ldp x26, x27, [sp]
+	add sp, sp, #16
         ldp x28, x29, [sp]
+	add sp, sp, #16
+        ldr x30, [sp]
 	add sp, sp, #16
 
 	ret
