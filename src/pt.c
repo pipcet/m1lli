@@ -138,6 +138,31 @@ int main(int argc, char **argv)
 	}
       }
     }
+  } else if (strcmp(argv[1], "remap-pa") == 0) {
+    unsigned long pa = addr;
+    unsigned long level0 = level0_ttbr();
+    unsigned long off0, off1, off2;
+    for (off0 = 0; off0 < 2048; off0++) {
+      if (!(read64(level0 + off0 * 8) & 1))
+	continue;
+      unsigned long level1 = read64(level0 + off0 * 8) & 0xfffffff000;
+      for (off1 = 0; off1 < 2048; off1++) {
+	if (!(read64(level1 + off1 * 8) & 1))
+	  continue;
+	unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
+	for (off2 = 0; off2 < 2048; off2++) {
+	  if ((read64(level2 + off2 * 8) & 1))
+	    continue;
+
+	  unsigned long pte = read64(level2 + off2 * 8) & 0xfffffff000;
+	  if (pte >= pa && pte < addr2) {
+	    printf("remapping %016x at %016lx\n",
+		   pte, offs_to_va(off0, off1, off2));
+	    write64(level2 + off2 * 8, read64(level2 + off2 * 8) | 1L);
+	  }
+	}
+      }
+    }
   } else if (strcmp(argv[1], "init") == 0) {
     printf("initializing\n");
     unsigned long offs[] = { 0, /* 0x80, */ 0x200, 0x400 };
