@@ -242,8 +242,8 @@ int main(int argc, char **argv)
   //SNIPPET(disable_timers);
   //SNIPPET(x8r8g8b8);
   SNIPPET(perform_alignment_4);
-  SNIPPET(enable_all_clocks);
-  SNIPPET(bring_up_phys_2);
+  //SNIPPET(enable_all_clocks);
+  //SNIPPET(bring_up_phys_2);
   SNIPPET(restore_boot_args);
   assert((void *)p <= buf + prelude_size);
   fread(image, image_size, 1, f);
