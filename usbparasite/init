@@ -16,6 +16,7 @@ pt init > pt-init-log
 while true; do
     for i in $(seq 1 80); do
 	sleep 2
+	memtool mw 0x23d2b000c 3
 	memtool mw 0x23d2b0010 0 0xffffffff 0 0
 	# echo heartbeat > /sys/class/leds/kbd_backlight/trigger
 	memtool mw 0x235044018 0 128
