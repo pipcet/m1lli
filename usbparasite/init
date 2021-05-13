@@ -6,29 +6,34 @@ mount -t configfs configfs sys/kernel/config
 tar xzvf /perl.tar.gz
 tar xvf /m1lli-scripts.tar
 
+echo 9616162816 0 > /mmio-map
+
+touch /start-wait4mmio
+pt init > pt-init-log
+
 while true; do
     for i in $(seq 1 80); do
+	sleep 2
+	memtool mw 0x23d2b0010 0 0xffffffff 0 0
 	# echo heartbeat > /sys/class/leds/kbd_backlight/trigger
 	memtool mw 0x235044018 0 128
 	memtool mw 0x235044000 0x4239
-	# memtool md 0x23b102000
+	# # # memtool md 0x23b102000
 	memtool mw 0x23b7001d8 0xf
 	memtool mw 0x23b7001e0 0xf
-	#	cat /proc/interrupts
-	#	cat /proc/iomem
-	sleep .25
+	# #	cat /proc/interrupts
+	# #	cat /proc/iomem
 	/bin/scanmem && continue
+	memtool mw 0x23d2b0010 0 0xffffffff 0 0
+	sleep 2
 	memtool mw 0x235044018 128 0
 	memtool mw 0x235044000 0x4239
-	# memtool md 0x23b102000
+	# # # memtool md 0x23b102000
 	memtool mw 0x23b7001d8 0xf
 	memtool mw 0x23b7001e0 0xf
 	# memtool mw 0x23d2b0010 1000 0 0 4
-		#cat /proc/interrupts
-		#cat /proc/iomem
-	sleep .25
-	echo foo
-	cat /proc/iomem
-	memtool mw 0x23d2b0010 0xffffffff 0 0 0
+	#cat /proc/interrupts
+	#cat /proc/iomem
+	[ -e /start-wait4mmio ] && (rm /start-wait4mmio; (while true; do wait4mmio >> /log 2> /log2; done) &)
     done
 done
