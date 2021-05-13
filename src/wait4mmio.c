@@ -4,8 +4,16 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include "ptstuff.h"
+
+#define print(fmt, ...) do {						\
+    struct timeval tv;							\
+    gettimeofday(&tv, NULL);						\
+    printf("[%16ld.%06ld] " fmt, (long)tv.tv_sec, (long)tv.tv_usec, __VA_ARGS__); \
+  } while (0)
 
 bool simulate_insn(unsigned long frame, unsigned insn,
 		   unsigned long elr, unsigned long va,
@@ -24,7 +32,7 @@ bool simulate_insn(unsigned long frame, unsigned insn,
 
   int t = (insn & 31);
   if ((insn & 0xffe00c00) == 0xb8200800) { /* 32-bit STR (register) */
-    printf("[%16ld] %016lx <- %08lx\n", (long)time(NULL), pa, read_reg(frame, t, level0));
+    print("%016lx <- %08lx\n", pa, read_reg(frame, t, level0));
 #if 0
     return false;
 #else
@@ -33,11 +41,11 @@ bool simulate_insn(unsigned long frame, unsigned insn,
 #endif
   } else if ((insn & 0xffe00c00) == 0xb8600800) { /* LDR (register) */
     u64 val = read32(pa);
-    printf("[%16ld] %016lx -> %08lx\n", (long)time(NULL), pa, val);
+    print("%016lx -> %08lx\n", pa, val);
     write_reg(frame, t, val, level0);
     return true;
   } else if ((insn & 0xffe00000) == 0xb9000000) { /* STR (unsigned offset) */
-    printf("[%16ld] %016lx <- %016lx\n", (long)time(NULL), pa, read_reg(frame, t, level0));
+    print("%016lx <- %016lx\n", pa, read_reg(frame, t, level0));
 #if 0
     return false;
 #else
@@ -46,7 +54,7 @@ bool simulate_insn(unsigned long frame, unsigned insn,
 #endif
   } else if ((insn & 0xffe00000) == 0xb9400000) { /* LDR (unsigned offset) */
     u64 val = read32(pa);
-    printf("[%16ld] %016lx -> %016lx\n", (long)time(NULL), pa, val);
+    print("%016lx -> %016lx\n", pa, val);
     write_reg(frame, t, val, level0);
     return true;
   }
