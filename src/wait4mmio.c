@@ -33,12 +33,8 @@ bool simulate_insn(unsigned long frame, unsigned insn,
   int t = (insn & 31);
   if ((insn & 0xffe00c00) == 0xb8200800) { /* 32-bit STR (register) */
     print("%016lx <- %08lx\n", pa, read_reg(frame, t, level0));
-#if 0
-    return false;
-#else
     write32(pa, read_reg(frame, t, level0));
     return true;
-#endif
   } else if ((insn & 0xffe00c00) == 0xb8600800) { /* LDR (register) */
     u64 val = read32(pa);
     print("%016lx -> %08lx\n", pa, val);
@@ -46,12 +42,8 @@ bool simulate_insn(unsigned long frame, unsigned insn,
     return true;
   } else if ((insn & 0xffe00000) == 0xb9000000) { /* STR (unsigned offset) */
     print("%016lx <- %016lx\n", pa, read_reg(frame, t, level0));
-#if 0
-    return false;
-#else
     write32(pa, read_reg(frame, t, level0));
     return true;
-#endif
   } else if ((insn & 0xffe00000) == 0xb9400000) { /* LDR (unsigned offset) */
     u64 val = read32(pa);
     print("%016lx -> %016lx\n", pa, val);
