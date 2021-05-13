@@ -13,6 +13,7 @@
     struct timeval tv;							\
     gettimeofday(&tv, NULL);						\
     printf("[%16ld.%06ld] " fmt, (long)tv.tv_sec, (long)tv.tv_usec, __VA_ARGS__); \
+    fflush(stdout);							\
   } while (0)
 
 bool simulate_insn(unsigned long frame, unsigned insn,
