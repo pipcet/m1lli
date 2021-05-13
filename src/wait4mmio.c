@@ -109,13 +109,11 @@ int main(void)
     bool success = false;
     while ((far = read64(ppage + 0x3ff0)) == 0);
     unsigned long esr = read64(ppage + 0x3fd8);
-#if 0
-    if ((esr & 0xf800 0000) != 0x9000 0000) {
+    if ((esr & 0x0f8000000UL) != 0x090000000UL) {
       write64(ppage + 0x3fd0, success);
       write64(ppage + 0x3ff0, 0);
       continue;
     }
-#endif
     if (far >= 0xf000000000000000) {
       do {
 	unsigned long elr = read64(ppage + 0x3ff8);
@@ -146,7 +144,8 @@ int main(void)
 		write64(ppage + 0x3ff0, 0);
 	      } else {
 		printf("remapping page at %016lx %016lx after %08x\n", pa, va,
-		       insn);
+		       insn, insn_at_va(elr, read64(ppage + 0x3fe8)),
+		       insn_at_va(elr, read64(ppage + 0x3fe0)));
 		write64(level2 + off2 * 8, read64(level2 + off2 * 8) | 1);
 		write64(ppage + 0x3fd0, success);
 		write64(ppage + 0x3ff0, 0);

@@ -9,9 +9,9 @@ long mmiotrace(unsigned long frame)
   unsigned long esr;
   asm volatile("mrs %0, esr_el2" : "=r" (esr));
   unsigned long ttbr0_el0;
-  asm volatile("mrs %0, ttbr0_el1" : "=r" (ttbr0_el0));
+  asm volatile("mrs %0, ttbr1_el1" : "=r" (ttbr0_el0));
   unsigned long ttbr1_el0;
-  asm volatile("mrs %0, ttbr1_el1" : "=r" (ttbr1_el0));
+  asm volatile("mrs %0, ttbr1_el2" : "=r" (ttbr1_el0));
 
   *(VPAGE + (0x3fc8/8)) = frame;
   *(VPAGE + (0x3fd8/8)) = esr;

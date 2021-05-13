@@ -73,14 +73,20 @@ int main(int argc, char **argv)
     unsigned long off1 = (addr >> (14 + 11)) & 2047;
     unsigned long off2 = (addr >> (14)) & 2047;
     unsigned long level0 = level0_ttbr();
-    if (!(read64(level0 + off0 * 8) & 1))
+    if (!(read64(level0 + off0 * 8) & 1)) {
+      printf("invalid level1 entry\n");
       return 1;
+    }
     unsigned long level1 = read64(level0 + off0 * 8) & 0xfffffff000;
-    if (!(read64(level1 + off1 * 8) & 1))
+    if (!(read64(level1 + off1 * 8) & 1)) {
+      printf("invalid level2 entry\n");
       return 1;
+    }
     unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
-    if (!(read64(level2 + off2 * 8) & 1))
+    if (!(read64(level2 + off2 * 8) & 1)) {
+      printf("invalid level3 entry\n");
       return 1;
+    }
     unsigned long level3 = read64(level2 + off2 * 8) & 0xfffffff000;
     printf("%016lx %016lx\n", level3, read64(level2 + off2 * 8));
   } else if (strcmp(argv[1], "map-va-to-pa-rw") == 0) {
