@@ -6,6 +6,8 @@ mount -t configfs configfs sys/kernel/config
 tar xzvf /perl.tar.gz
 tar xvf /m1lli-scripts.tar
 
+sleep 1m
+
 echo 9616162816 0 > /mmio-map
 
 touch /start-wait4mmio
