@@ -17,8 +17,8 @@ long mmiotrace(unsigned long frame)
   *(VPAGE + (0x3fd8/8)) = esr;
   *(VPAGE + (0x3fe0/8)) = ttbr0_el0;
   *(VPAGE + (0x3fe8/8)) = ttbr1_el0;
-  *(VPAGE + (0x3ff0/8)) = far;
   *(VPAGE + (0x3ff8/8)) = elr;
+  *(VPAGE + (0x3ff0/8)) = far;
   if (*(VPAGE + (0x3e00/8)) == 0)
     return 0;
   while (*(VPAGE + (0x3ff0/8)));
