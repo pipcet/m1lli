@@ -25,30 +25,39 @@ bool simulate_insn(unsigned long frame, unsigned insn,
   pa &= ~0x3fffL;
   pa |= (va & 0x3fffL);
 
-  if ((insn & 0xffe00c00) == 0xb800400) {
-    int n = (insn >> 5) & 31;
-    int t = (insn & 31);
-    int imm = (insn >> 12) & 0x1ff;
-    if (imm & 0x100)
-      imm = 0x200 - imm;
-  }
-
   int t = (insn & 31);
-  if ((insn & 0xffe00c00) == 0xb8200800) { /* 32-bit STR (register) */
+  if ((insn & 0xffe00c00) == 0xb8200800 ||
+      (insn & 0xffe00000) == 0xb9000000) {
+    /* 32-bit STR (register, unsigned offset) */
     print("%016lx <- %08lx\n", pa, read_reg(frame, t, level0));
     write32(pa, read_reg(frame, t, level0));
     return true;
-  } else if ((insn & 0xffe00c00) == 0xb8600800) { /* LDR (register) */
+  }
+  if ((insn & 0xffe00c00) == 0xb8600800 ||
+      (insn & 0xffe00000) == 0xb9400000) {
+    /* 32-bit LDR (register, unsigned offset) */
+    if (pa == 0x23b100000 + 0x2000 ||
+	pa == 0x23b100000 + 0x2004) {
+      write64(ppage + 0x3fb8, 0xfffffff100000000 + (pa & 0x3fff));
+      write64(ppage + 0x3fb0, read64(ppage + 0x3fc8) + t * 8);
+      return false;
+    }
     u64 val = read32(pa);
     print("%016lx -> %08lx\n", pa, val);
     write_reg(frame, t, val, level0);
     return true;
-  } else if ((insn & 0xffe00000) == 0xb9000000) { /* STR (unsigned offset) */
+  }
+  if ((insn & 0xffe00c00) == 0xf8200800 ||
+      (insn & 0xffe00000) == 0xf9000000) {
+    /* 64-bit STR (register, unsigned offset) */
     print("%016lx <- %016lx\n", pa, read_reg(frame, t, level0));
-    write32(pa, read_reg(frame, t, level0));
+    write64(pa, read_reg(frame, t, level0));
     return true;
-  } else if ((insn & 0xffe00000) == 0xb9400000) { /* LDR (unsigned offset) */
-    u64 val = read32(pa);
+  }
+  if ((insn & 0xffe00c00) == 0xf8600800 ||
+      (insn & 0xffe00000) == 0xf9400000) {
+    /* 64-bit LDR (register, unsigned offset) */
+    u64 val = read64(pa);
     print("%016lx -> %016lx\n", pa, val);
     write_reg(frame, t, val, level0);
     return true;
@@ -105,6 +114,7 @@ int main(void)
     log = stdout;
   write64(ppage + 0x3ff8, 0xffffffff);
   write64(ppage + 0x3ff0, 0);
+  write64(ppage + 0x3fb0, 0);
   unsigned long far;
 
   write64(ppage + 0x3e00, 0xffffffff);
@@ -114,6 +124,13 @@ int main(void)
     unsigned long esr = read64(ppage + 0x3fd8);
     if ((esr & 0x0f8000000UL) != 0x090000000UL) {
       write64(ppage + 0x3fd0, success);
+      write64(ppage + 0x3ff0, 0);
+      continue;
+    }
+    if (read64(ppage + 0x3fb0)) {
+      print("interrupt event %08lx\n", read64(ppage + 0x3fb8));
+      write64(ppage + 0x3fb0, 0);
+      write64(ppage + 0x3fd0, 1);
       write64(ppage + 0x3ff0, 0);
       continue;
     }
