@@ -13,6 +13,7 @@ long mmiotrace(unsigned long frame)
   unsigned long ttbr1_el0;
   asm volatile("mrs %0, ttbr1_el1" : "=r" (ttbr1_el0));
 
+ again:
   *(VPAGE + (0x3fc8/8)) = frame;
   *(VPAGE + (0x3fd8/8)) = esr;
   *(VPAGE + (0x3fe0/8)) = ttbr0_el0;
@@ -24,5 +25,14 @@ long mmiotrace(unsigned long frame)
   while (*(VPAGE + (0x3ff0/8)));
   elr = *(VPAGE + (0x3ff8/8));
   asm volatile("msr elr_el2, %0" : : "r" (elr));
-  return (*(VPAGE + (0x3fd0/8))) != 0;
+  long ret = (*(VPAGE + (0x3fd0/8))) != 0;
+
+  if (*(VPAGE + (0x3fb0/8)) != 0) {
+    unsigned val = *(volatile unsigned *)(*(VPAGE + 0x3fb8/8));
+    *(*(unsigned long **)(VPAGE + (0x3fb0/8))) = val;
+    *(VPAGE + 0x3fb8/8) = val;
+    goto again;
+  }
+
+  return ret;
 }
