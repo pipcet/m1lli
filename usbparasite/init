@@ -39,6 +39,11 @@ sleep 10
 
 (while true; do /bin/scanmem; done) &
 
+(while true; do
+     memtool md 0x23d2b000c+4 | grep '00000003' && memtool mw 0x23d2b000c 3
+     sleep 1
+ done) &
+
 while true; do
     for i in $(seq 1 80); do
 	sleep 2
