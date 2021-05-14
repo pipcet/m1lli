@@ -36,13 +36,19 @@ static inline void remap_memory(unsigned long off)
 
 static void *remapped_addr(unsigned long off)
 {
+  static long dummy = 0;
   for (size_t i = 0; i < ARRAYELTS(mapping); i++) {
     if (mapping[i].mapped && off >= mapping[i].offset && off < mapping[i].offset + 16384) {
       return (mapping[i].mapped + off - mapping[i].offset);
     }
   }
   remap_memory(off & ~16383L);
-  return remapped_addr(off);
+  for (size_t i = 0; i < ARRAYELTS(mapping); i++) {
+    if (mapping[i].mapped && off >= mapping[i].offset && off < mapping[i].offset + 16384) {
+      return (mapping[i].mapped + off - mapping[i].offset);
+    }
+  }
+  return &dummy;
 }
 
 static inline u64 read64(unsigned long off)
