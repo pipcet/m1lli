@@ -9,11 +9,13 @@
 
 #include "ptstuff.h"
 
+static FILE *log;
+
 #define print(fmt, ...) do {						\
     struct timeval tv;							\
     gettimeofday(&tv, NULL);						\
-    printf("[%16ld.%06ld] " fmt, (long)tv.tv_sec, (long)tv.tv_usec, __VA_ARGS__); \
-    fflush(stdout);							\
+    fprintf(log, "[%16ld.%06ld] " fmt, (long)tv.tv_sec, (long)tv.tv_usec, __VA_ARGS__); \
+    fflush(log);							\
   } while (0)
 
 bool simulate_insn(unsigned long frame, unsigned insn,
@@ -51,6 +53,7 @@ bool simulate_insn(unsigned long frame, unsigned insn,
     write_reg(frame, t, val, level0);
     return true;
   }
+  print("unhandled insn %08x\n", insn);
   return false;
   if ((insn & 0xffe00c00) == 0xb8000400) { /* STR (post-index) */
     write32(pa, read_reg(frame, t, level0));
@@ -89,7 +92,6 @@ bool simulate_insn(unsigned long frame, unsigned insn,
       /* 64-bit load */
     }
   } else {
-    printf("unhandled insn %08x\n", insn);
     return false;
   }
 
@@ -98,6 +100,9 @@ bool simulate_insn(unsigned long frame, unsigned insn,
 
 int main(void)
 {
+  log = fopen("/mmio-log", "a");
+  if (!log)
+    log = stdout;
   write64(ppage + 0x3ff8, 0xffffffff);
   write64(ppage + 0x3ff0, 0);
   unsigned long far;
@@ -141,12 +146,12 @@ int main(void)
 		write64(ppage + 0x3fd0, success);
 		write64(ppage + 0x3ff0, 0);
 	      } else {
-		printf("remapping page at %016lx %016lx after %08x\n", pa, va,
-		       insn, insn_at_va(elr, read64(ppage + 0x3fe8)),
-		       insn_at_va(elr, read64(ppage + 0x3fe0)));
 		write64(level2 + off2 * 8, read64(level2 + off2 * 8) | 1);
 		write64(ppage + 0x3fd0, success);
 		write64(ppage + 0x3ff0, 0);
+		print("remapping page at %016lx %016lx after %08x\n", pa, va,
+		       insn, insn_at_va(elr, read64(ppage + 0x3fe8)),
+		       insn_at_va(elr, read64(ppage + 0x3fe0)));
 	      }
 	      break;
 	    }
@@ -162,11 +167,11 @@ int main(void)
 		write64(ppage + 0x3fd0, success);
 		write64(ppage + 0x3ff0, 0);
 	      } else {
-		printf("remapping unknown page at %016lx %016lx after %08x\n", pa, va,
-		       insn);
 		write64(level2 + off2 * 8, read64(level2 + off2 * 8) | 1);
 		write64(ppage + 0x3fd0, success);
 		write64(ppage + 0x3ff0, 0);
+		print("remapping unknown page at %016lx %016lx after %08x\n", pa, va,
+		       insn);
 	      }
 	    }
 	  }
@@ -174,15 +179,11 @@ int main(void)
 	unsigned long level3 = read64(level2 + off2 * 8) & 0xfffffff000;
 	if (success) {
 #if 0
-	  printf("FAR %016lx ELR %016lx ESR %016lx insn %08x\n", far, elr, esr,
+	  print("FAR %016lx ELR %016lx ESR %016lx insn %08x\n", far, elr, esr,
 		 insn);
 
-	  printf("PA %016lx\n", level3);
+	  print("PA %016lx\n", level3);
 	  fflush(stdout);
-	  fprintf(stderr, "FAR %016lx ELR %016lx ESR %016lx\n", far, elr, esr);
-
-	  fprintf(stderr, "PA %016lx\n", level3);
-	  fflush(stderr);
 #endif
 	}
       } while (0);
