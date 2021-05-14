@@ -5,9 +5,11 @@
 typedef unsigned u32;
 typedef unsigned long u64;
 
-static unsigned long dummybuf[16384];
-static void *mapped;
-static unsigned long offset;
+static struct {
+  void *mapped;
+  unsigned long offset;
+} mapping[32];
+
 static int fd = -1;
 static unsigned long ppage = 0xb90000000;
 
@@ -15,57 +17,52 @@ static inline void remap_memory(unsigned long off)
 {
   if (fd < 0)
     fd = open("/dev/mem", O_RDWR);
-  if (mapped)
-    munmap(mapped, 16384);
-  void *new_mapped =
-    mmap(NULL, 16384, PROT_READ|PROT_WRITE, MAP_SHARED, fd, off);
-  if (new_mapped && new_mapped != MAP_FAILED) {
-    mapped = new_mapped;
-    offset = off;
-  } else {
-    mapped = dummybuf;
-    offset = off;
+  size_t i = 0;
+  for (i = 0; i < ARRAYELTS(mapping); i++) {
+    if (mapping[i].mapped == NULL) {
+      mapping[i].mapped = mmap(NULL, 16384, PROT_READ|PROT_WRITE, MAP_SHARED, fd, off);
+      if (mapping[i].mapped == MAP_FAILED)
+	mapping[i].mapped = NULL;
+      mapping[i].offset = off;
+      return;
+    }
   }
+  i = random() % ARRAYELTS(mapping);
+  munmap(mapping[i].mapped, 16384);
+  mapping[i].mapped = NULL;
+  mapping[i].offset = 0;
+  remap_memory(off);
+}
+
+static void *remapped_addr(unsigned long off)
+{
+  for (size_t i = 0; i < ARRAYELTS(mapping); i++) {
+    if (mapping[i].mapped && off >= mapping[i].offset && off < mapping[i].offset + 16384) {
+      return (mapping[i].mapped + off - mapping[i].offset);
+    }
+  }
+  remap_memory(off & ~16383L);
+  return remapped_addr(off);
 }
 
 static inline u64 read64(unsigned long off)
 {
-  if (mapped && off >= offset && off < offset + 16384) {
-    return *(volatile long *)(mapped + off - offset);
-  } else {
-    remap_memory(off & ~16383L);
-    return read64(off);
-  }
+  return *(volatile long *)remapped_addr(off);
 }
 
 static inline void write64(unsigned long off, u64 val)
 {
-  if (mapped && off >= offset && off < offset + 16384) {
-    *(volatile long *)(mapped + off - offset) = val;
-  } else {
-    remap_memory(off & ~16383L);
-    write64(off, val);
-  }
+  *(volatile long *)remapped_addr(off) = val;
 }
 
 static inline u32 read32(unsigned long off)
 {
-  if (mapped && off >= offset && off < offset + 16384) {
-    return *(volatile unsigned*)(mapped + off - offset);
-  } else {
-    remap_memory(off & ~16383L);
-    return read32(off);
-  }
+  return *(volatile unsigned*)remapped_addr(off);
 }
 
 static inline void write32(unsigned long off, u32 val)
 {
-  if (mapped && off >= offset && off < offset + 16384) {
-    *(volatile unsigned*)(mapped + off - offset) = val;
-  } else {
-    remap_memory(off & ~16383L);
-    write32(off, val);
-  }
+  *(volatile unsigned *)remapped_addr(off) = val;
 }
 
 unsigned long alloc_page(void)
