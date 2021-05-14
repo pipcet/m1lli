@@ -125,7 +125,7 @@ int main(int argc, char **argv)
 
 	  unsigned long pte = read64(level2 + off2 * 8) & 0xfffffff000;
 	  if (pte >= pa && pte < addr2) {
-	    printf("unmapping %016x at %016lx\n",
+	    printf("unmapping %016lx at %016lx\n",
 		   pte, offs_to_va(off0, off1, off2));
 	    FILE *f;
 	    f = fopen("/mmio-map", "a");
