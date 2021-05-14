@@ -213,6 +213,8 @@ int main(int argc, char **argv)
     printf("mapping page\n");
     install_page(0xfffffff000000000, 0xb90000000, false);
     printf("mapping page\n");
+    install_page(0xfffffff100000000, 0x23b100000, false);
+    printf("mapping page\n");
     install_page(0xfffffff800000000, 0xb90000000, true);
 
     {
