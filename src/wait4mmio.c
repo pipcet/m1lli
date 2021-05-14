@@ -174,6 +174,7 @@ int main(void)
 	    }
 	  }
 	  fclose (f);
+#if 0
 	  if (!success) {
 	    success = true;
 	    insn = insn_at_va(elr, read64(ppage + 0x3fe8));
@@ -190,6 +191,7 @@ int main(void)
 		    insn);
 	    }
 	  }
+#endif
 	}
 	unsigned long level3 = read64(level2 + off2 * 8) & 0xfffffff000;
 	if (success) {
