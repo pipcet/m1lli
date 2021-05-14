@@ -15,6 +15,7 @@ static int fd;
 static pid_t child;
 static int pfd[4];
 static char *command;
+static unsigned long max_time;
 
 static void *thread_routine(void *offset_v)
 {
@@ -38,6 +39,8 @@ static void *thread_routine(void *offset_v)
 	goto noluck;
     }
 
+    if (page[5] - 60 > max_time)
+      max_time = page[5] - 60;
     switch(page[4]) {
     case 'R': {
       /* read half a page */
@@ -92,8 +95,15 @@ static void *thread_routine(void *offset_v)
     }
     case '<': {
       /* receive from stdio command */
-      fcntl(pfd[2], F_SETFL, O_NONBLOCK);
-      page[3] = read(pfd[2], (void *)(page + 1024), 8192);
+      fd_set readfds;
+      FD_ZERO(&readfds);
+      FD_SET(pfd[2], &readfds);
+      struct timeval timeout = { 0, };
+      if (select(1, &readfds, NULL, NULL, &timeout)) {
+	page[3] = read(pfd[2], (void *)(page + 1024), 8192);
+      } else {
+	page[3] = 0;
+      }
       break;
     }
     default:
@@ -117,14 +127,14 @@ int main(void)
   while (true) {
     /* This is important, or we'll hog the memory bus and MacOS won't boot. */
     sleep(2);
-    for (unsigned long off = 0x800000000; off < 0x980000000; off += 16384)
+    for (unsigned long off = 0x800000000; off < 0xa00000000; off += 16384)
       {
 	volatile unsigned long *page = mmap(NULL, 16384, PROT_READ|PROT_WRITE,
 					    MAP_SHARED, fd, off);
 	if (page == MAP_FAILED)
 	  continue;
 
-	if (page[0] == 0x5a6b448a98b350b6) {
+	if (page[0] == 0x5a6b448a98b350b6 && page[5] >= max_time) {
 	  size_t i;
 	  for (i = 0; i < ARRAYELTS(threads); i++) {
 	    if (threads[i].off == 0) {
