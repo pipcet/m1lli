@@ -99,7 +99,7 @@ static void *thread_routine(void *offset_v)
       FD_ZERO(&readfds);
       FD_SET(pfd[2], &readfds);
       struct timeval timeout = { 0, };
-      if (select(1, &readfds, NULL, NULL, &timeout)) {
+      if (select(pfd[2] + 1, &readfds, NULL, NULL, &timeout)) {
 	page[3] = read(pfd[2], (void *)(page + 1024), 8192);
       } else {
 	page[3] = 0;
