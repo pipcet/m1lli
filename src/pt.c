@@ -87,6 +87,9 @@ int main(int argc, char **argv)
       printf("invalid level3 entry\n");
       return 1;
     }
+    if ((read64(level1 + off1 * 8) & 3) == 1) {
+      printf("%016lx %016lx [block]\n", level2, read64(level1 + off1 * 8));
+    }
     unsigned long level3 = read64(level2 + off2 * 8) & 0xfffffff000;
     printf("%016lx %016lx\n", level3, read64(level2 + off2 * 8));
   } else if (strcmp(argv[1], "map-va-to-pa-rw") == 0) {
@@ -125,8 +128,8 @@ int main(int argc, char **argv)
 
 	  unsigned long pte = read64(level2 + off2 * 8) & 0xfffffff000;
 	  if (pte >= pa && pte < addr2) {
-	    printf("unmapping %016lx at %016lx\n",
-		   pte, offs_to_va(off0, off1, off2));
+	    printf("unmapping %016lx [%016lx] at %016lx\n",
+		   pte, read64(level2 + off2 * 8), offs_to_va(off0, off1, off2));
 	    FILE *f;
 	    f = fopen("/mmio-map", "a");
 	    if (f) {
@@ -156,8 +159,8 @@ int main(int argc, char **argv)
 
 	  unsigned long pte = read64(level2 + off2 * 8) & 0xfffffff000;
 	  if (pte >= pa && pte < addr2) {
-	    printf("remapping %016x at %016lx\n",
-		   pte, offs_to_va(off0, off1, off2));
+	    printf("remapping %016lx at %016lx\n",
+		   read64(level2 + off2 * 8), offs_to_va(off0, off1, off2));
 	    write64(level2 + off2 * 8, read64(level2 + off2 * 8) | 1L);
 	  }
 	}
@@ -165,18 +168,20 @@ int main(int argc, char **argv)
     }
   } else if (strcmp(argv[1], "init") == 0) {
     printf("initializing\n");
-    unsigned long offs[] = { 0, /* 0x80, */ 0x200, 0x400 };
+    unsigned long offs[] = { 0, /* 0x80, */ 0x200, /* 0x400, */ 							    0x9000 - 0x2000, 0x9200 - 0x2000, 0x9400 - 0x2000 };
     unsigned long base = read64(0xac0000008); /* MAGIC address */
     printf("base at %016lx, VBAR=%016lx\n", base, base + 0xc02000);
 #define code1 irq_handler_store_magic_cookie
     /* code1 should be [0xa9bf07e0,0xd11003e0,0x9272c400,0x58000121,0xf9000001,0xd5382001,0xa94007e0,0x910043ff,0x1400041c,0xd503201f,0xd503201f,0xd503201f,0x7b5a3da3,0x2ff2a7a3] */
     for (int i = ARRAYELTS(code1) - 1; i > 0; i--)
       write32(base + 0xc02080 + 4 * i, code1[i]);
+    unsigned long stackbase = 0;
     write32(base + 0xc02080, code1[0]);
 
-    unsigned long stackbase = 0;
     while (stackbase == 0) {
+      write32(base + 0xc02080, code1[0]);
       printf("waiting for first IRQ\n");
+      write32(base + 0xc02080, code1[0]);
       for (unsigned long offset = 0x800000000; offset < 0x900000000; offset += 16384) {
 	unsigned long val = read64(offset);
 	/* Just a random tag, so we find the right page without knowing its PA. */
@@ -211,11 +216,15 @@ int main(int argc, char **argv)
     write64(0xb90003e10, 0xb90004000);
 
     printf("mapping page\n");
-    install_page(0xfffffff000000000, 0xb90000000, false);
+    install_page(0xfffffff000004000, 0x23b100000, 2);
     printf("mapping page\n");
-    install_page(0xfffffff100000000, 0x23b100000, false);
+    install_page(0xfffffff000000000, 0xb90000000, 0);
     printf("mapping page\n");
-    install_page(0xfffffff800000000, 0xb90000000, true);
+    install_page(0xfffffff100000000, 0x23b100000, 2);
+    printf("mapping page\n");
+    install_page(0xfffffff100008000, 0x23d2b0000, 2);
+    printf("mapping page\n");
+    install_page(0xfffffff800000000, 0xb90000000, 1);
 
     {
       int i = 0;

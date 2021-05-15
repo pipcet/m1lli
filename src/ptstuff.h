@@ -78,7 +78,7 @@ unsigned long alloc_page(void)
   return ret;
 }
 
-unsigned long install_page(unsigned long va, unsigned long pa, bool executable)
+unsigned long install_page(unsigned long va, unsigned long pa, int typeidx)
 {
   unsigned long off0 = (va >> (14 + 11 + 11)) & 2047;
   unsigned long off1 = (va >> (14 + 11)) & 2047;
@@ -96,7 +96,43 @@ unsigned long install_page(unsigned long va, unsigned long pa, bool executable)
     goto again;
   }
   unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
-  write64(level2 + off2 * 8, pa | (executable ? 0x40000000000683 : 0x60000000000603));
+  unsigned long types[] = {
+    0x0060000000000603,
+    0x0040000000000683,
+    0x006000000000040f,
+    0x046000000000040f,
+  };
+  write64(level2 + off2 * 8, pa | (types[typeidx]));
+
+  return pa;
+}
+
+unsigned long install_page2(unsigned long va, unsigned long pa, int typeidx,
+			    unsigned long level0)
+{
+  unsigned long off0 = (va >> (14 + 11 + 11)) & 2047;
+  unsigned long off1 = (va >> (14 + 11)) & 2047;
+  unsigned long off2 = (va >> (14)) & 2047;
+
+  level0 &= 0xffffffff000;
+ again:
+  if (!(read64(level0 + off0 * 8) & 1)) {
+    write64(level0 + off0 * 8, alloc_page() | 3);
+    goto again;
+  }
+  unsigned long level1 = read64(level0 + off0 * 8) & 0xfffffff000;
+  if (!(read64(level1 + off1 * 8) & 1)) {
+    write64(level1 + off1 * 8, alloc_page() | 3);
+    goto again;
+  }
+  unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
+  unsigned long types[] = {
+    0x0060000000000603,
+    0x0040000000000683,
+    0x006000000000040f,
+    0x046000000000040f,
+  };
+  write64(level2 + off2 * 8, pa | (types[typeidx]));
 
   return pa;
 }
@@ -104,6 +140,30 @@ unsigned long install_page(unsigned long va, unsigned long pa, bool executable)
 unsigned long offs_to_va(unsigned long off0, unsigned long off1, unsigned long off2)
 {
   return 0xffff000000000000 + (off0 << (14 + 11 + 11)) + (off1 << (14 + 11)) + (off2 << 14);
+}
+
+unsigned long va_to_pa(unsigned long va, unsigned long level0)
+{
+  if ((va & 0xffff000000000000) != 0xffff000000000000)
+    return 0;
+  unsigned long off0 = (va >> (14 + 11 + 11)) & 2047;
+  unsigned long off1 = (va >> (14 + 11)) & 2047;
+  unsigned long off2 = (va >> (14)) & 2047;
+
+  if (!(read64(level0 + off0 * 8) & 1))
+    return -1;
+  unsigned long level1 = read64(level0 + off0 * 8) & 0xfffffff000;
+  if (!(read64(level1 + off1 * 8) & 1))
+    return -2;
+  if ((read64(level1 + off1 * 8) & 3) == 1) {
+    unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
+    return read32(level2 + (va & 0x3ffc) + (va & 0x1ffc000));
+  }
+  unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
+  if (!(read64(level2 + off2 * 8) & 1))
+    return -3;
+  unsigned long level3 = read64(level2 + off2 * 8) & 0xfffffff000;
+  return level3 + (va & 0x3fff);
 }
 
 unsigned insn_at_va(unsigned long va, unsigned long level0)
@@ -119,6 +179,10 @@ unsigned insn_at_va(unsigned long va, unsigned long level0)
   unsigned long level1 = read64(level0 + off0 * 8) & 0xfffffff000;
   if (!(read64(level1 + off1 * 8) & 1))
     return -2;
+  if ((read64(level1 + off1 * 8) & 3) == 1) {
+    unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
+    return read32(level2 + (va & 0x3ffc) + (va & 0x1ffc000));
+  }
   unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
   if (!(read64(level2 + off2 * 8) & 1))
     return -3;
@@ -159,6 +223,10 @@ u64 read64_at_va(unsigned long va, unsigned long level0)
   unsigned long level1 = read64(level0 + off0 * 8) & 0xfffffff000;
   if (!(read64(level1 + off1 * 8) & 1))
     return 0;
+  if ((read64(level1 + off1 * 8) & 3) == 1) {
+    unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
+    return level2 + (va & 0x3ffc) + (va & 0x1ffc000);
+  }
   unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
   if (!(read64(level2 + off2 * 8) & 1))
     return 0;

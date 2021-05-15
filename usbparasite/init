@@ -6,47 +6,27 @@ mount -t configfs configfs sys/kernel/config
 tar xzvf /perl.tar.gz
 tar xvf /m1lli-scripts.tar
 
-for i in $(seq 1 10); do
-    sleep 2
-    memtool mw 0x23d2b0010 0 0xffffffff 0 0
-    # echo heartbeat > /sys/class/leds/kbd_backlight/trigger
-    memtool mw 0x235044018 0 128
-    memtool mw 0x235044000 0x4239
-    # # # memtool md 0x23b102000
-    memtool mw 0x23b7001d8 0xf
-    memtool mw 0x23b7001e0 0xf
-    # #	cat /proc/interrupts
-    # #	cat /proc/iomem
-    memtool mw 0x23d2b0010 0 0xffffffff 0 0
-    sleep 2
-    memtool mw 0x235044018 128 0
-    memtool mw 0x235044000 0x4239
-    # # # memtool md 0x23b102000
-    memtool mw 0x23b7001d8 0xf
-    memtool mw 0x23b7001e0 0xf
-    # memtool mw 0x23d2b0010 1000 0 0 4
-    #cat /proc/interrupts
-    #cat /proc/iomem
-    [ -e /start-wait4mmio ] && (rm /start-wait4mmio; (while true; do wait4mmio >> /log 2> /log2; done) &)
-done
-
 touch /mmio-map
+touch /mmio-log
+tail -f /mmio-log &
 
 touch /start-wait4mmio
-pt init > pt-init-log
+pt init
 
-sleep 10
+cat pt-init-log
+sleep 1
 
-(while true; do /bin/scanmem; done) &
+# (while true; do
+#      memtool md 0x23d2b000c+4 | grep '00000003' && memtool mw 0x23d2b000c 3
+#      memtool mw 0x23d2b0048 0
+#      sleep .1
+#  done) &
 
-(while true; do
-     memtool md 0x23d2b000c+4 | grep '00000003' && memtool mw 0x23d2b000c 3
-     sleep 1
- done) &
+(sleep 1m; while true; do /bin/scanmem; done) &
 
 while true; do
     for i in $(seq 1 80); do
-	sleep 2
+	sleep 1
 	memtool mw 0x23d2b0010 0 0xffffffff 0 0
 	# echo heartbeat > /sys/class/leds/kbd_backlight/trigger
 	memtool mw 0x235044018 0 128
@@ -57,7 +37,7 @@ while true; do
 	# #	cat /proc/interrupts
 	# #	cat /proc/iomem
 	memtool mw 0x23d2b0010 0 0xffffffff 0 0
-	sleep 2
+	sleep 1
 	memtool mw 0x235044018 128 0
 	memtool mw 0x235044000 0x4239
 	# # # memtool md 0x23b102000
@@ -66,6 +46,8 @@ while true; do
 	# memtool mw 0x23d2b0010 1000 0 0 4
 	#cat /proc/interrupts
 	#cat /proc/iomem
-	[ -e /start-wait4mmio ] && (rm /start-wait4mmio; (while true; do wait4mmio >> /log 2> /log2; done) &)
+	# [ -e /start-wait4mmio ] && (rm /start-wait4mmio; (while true; do wait4mmio >> /log 2> /log2; done) &)
+	[ -e /start-wait4mmio ] && (rm /start-wait4mmio; (while true; do wait4mmio; done) & pt unmap-pa 0x23b100000)
+	# pt remap-pa 0x23b100000
     done
 done

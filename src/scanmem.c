@@ -126,7 +126,7 @@ int main(void)
   fd = open("/dev/mem", O_RDWR);
   while (true) {
     /* This is important, or we'll hog the memory bus and MacOS won't boot. */
-    sleep(2);
+    sleep(5);
     for (unsigned long off = 0x800000000; off < 0xa00000000; off += 16384)
       {
 	volatile unsigned long *page = mmap(NULL, 16384, PROT_READ|PROT_WRITE,
