@@ -1,5 +1,19 @@
 #include <stdbool.h>
 
+struct commpage {
+  unsigned long code[0x3000/8];
+  unsigned long mmio_master; /* 0x3e00 */
+  unsigned long mmio_ttbr; /* 0x3e08 */
+  unsigned long pt_wait_flag; /* 0x3f00 */
+  unsigned long mmio_reg_ptr; /* 0x3fb0 */
+  unsigned long mmio_read_va; /* 0x3fb8 */
+  unsigned long mmio_success; /* 0x3fd0 */
+  unsigned long mmio_ttbr1; /* 0x3fe0 */
+  unsigned long mmio_ttbr2; /* 0x3fe8 */
+  unsigned long mmio_far; /* 0x3ff0 */
+  unsigned long mmio_elr; /* 0x3ff8 */
+};
+
 #define ARRAYELTS(x) ((sizeof(x)/sizeof((x)[0])))
 
 typedef unsigned u32;
@@ -36,6 +50,7 @@ static inline void remap_memory(unsigned long off)
 
 static void *remapped_addr(unsigned long off)
 {
+  asm volatile("isb");
   static long dummy = 0;
   for (size_t i = 0; i < ARRAYELTS(mapping); i++) {
     if (mapping[i].mapped && off >= mapping[i].offset && off < mapping[i].offset + 16384) {
@@ -78,36 +93,7 @@ unsigned long alloc_page(void)
   return ret;
 }
 
-unsigned long install_page(unsigned long va, unsigned long pa, int typeidx)
-{
-  unsigned long off0 = (va >> (14 + 11 + 11)) & 2047;
-  unsigned long off1 = (va >> (14 + 11)) & 2047;
-  unsigned long off2 = (va >> (14)) & 2047;
-
-  unsigned long level0 = read64(ppage + 0x3e08);
- again:
-  if (!(read64(level0 + off0 * 8) & 1)) {
-    write64(level0 + off0 * 8, alloc_page() | 3);
-    goto again;
-  }
-  unsigned long level1 = read64(level0 + off0 * 8) & 0xfffffff000;
-  if (!(read64(level1 + off1 * 8) & 1)) {
-    write64(level1 + off1 * 8, alloc_page() | 3);
-    goto again;
-  }
-  unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
-  unsigned long types[] = {
-    0x0060000000000603,
-    0x0040000000000683,
-    0x006000000000040f,
-    0x046000000000040f,
-  };
-  write64(level2 + off2 * 8, pa | (types[typeidx]));
-
-  return pa;
-}
-
-unsigned long install_page2(unsigned long va, unsigned long pa, int typeidx,
+unsigned long install_page(unsigned long va, unsigned long pa, int typeidx,
 			    unsigned long level0)
 {
   unsigned long off0 = (va >> (14 + 11 + 11)) & 2047;
@@ -164,6 +150,11 @@ unsigned long va_to_pa(unsigned long va, unsigned long level0)
     return -3;
   unsigned long level3 = read64(level2 + off2 * 8) & 0xfffffff000;
   return level3 + (va & 0x3fff);
+}
+
+unsigned long va_to_baseoff(unsigned long va, unsigned long level0)
+{
+  return va_to_pa(va, level0) - read64(0xac0000008);
 }
 
 unsigned insn_at_va(unsigned long va, unsigned long level0)
