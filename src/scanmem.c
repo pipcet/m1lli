@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <pthread.h>
+#include <sched.h>
 
 #define ARRAYELTS(x) ((sizeof(x)/sizeof((x)[0])))
 static int fd;
@@ -102,7 +103,7 @@ static void *thread_routine(void *offset_v)
       if (select(pfd[2] + 1, &readfds, NULL, NULL, &timeout)) {
 	page[3] = read(pfd[2], (void *)(page + 1024), 8192);
       } else {
-	page[3] = 0;
+	page[3] = read(pfd[2], (void *)(page + 1024), 8192);
       }
       break;
     }
@@ -129,6 +130,8 @@ int main(void)
     sleep(5);
     for (unsigned long off = 0x800000000; off < 0xa00000000; off += 16384)
       {
+	if (!(off & 0xfffffff))
+	  sched_yield();
 	volatile unsigned long *page = mmap(NULL, 16384, PROT_READ|PROT_WRITE,
 					    MAP_SHARED, fd, off);
 	if (page == MAP_FAILED)
