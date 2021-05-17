@@ -28,7 +28,7 @@ void fadescreen(void)
   asm volatile("msr DAIF, %0" : : "r" (0x3c0L));
   //asm volatile("msr VBAR_EL1, %0" : : "r" (0xac0010000));
   /* 10 second delay, so MacOS isn't confused by us. */
-  udelay(10 * 1000000L);
+  //udelay(10 * 1000000L);
   unsigned long x0 = *(unsigned long *)0xac0000000;
   return ((void (*)(unsigned long, unsigned long))0xa40002000)(x0, 0);
 }
