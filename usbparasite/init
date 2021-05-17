@@ -8,12 +8,38 @@ tar xvf /m1lli-scripts.tar
 
 touch /mmio-map
 touch /mmio-log
-tail -f /mmio-log &
+# tail -f /mmio-log &
+touch /pt-log
+tail -f /pt-log &
 
-touch /start-wait4mmio
-pt init
+pt init3
+echo "init2"
+sleep 1; echo 3
+(while true; do wait4mmio; sleep 1; done) &
+sleep 1; echo 4
+pt unmap-pa 0x23d2b0000 0x23d2b4000 0
+echo 34359738368 > addr
+(while true; do
+     wc -l mmio-map
+     wait4pt $(cat addr) > addr2 && mv addr2 addr
+     pt unmap-pa 0x23d2b0000 0x23d2b4000 0
+     pt unmap-pa 0x200000000 0x23b000000
+     pt unmap-pa 0x23b200000 0x300000000
+     # pt unmap-pa 0xbdf438000 0xbe03d8000
+     pt unmap-pa 0x23e400000
+     pt unmap-pa 0x23e050000
+     wait4pt clear $(cat addr)
+ done) &
+sleep 1; echo 5
+(sleep 3m; while true; do memtool mw 0x210030fb0 0xc5acce55; memtool md 0x210040090+8; sleep 1; done) &
+sleep 1; echo 6
+#pt init2
+sleep 1; echo 7
+# pt unmap-pa 0x23d2b0000 0x23d2b4000
+sleep 1; echo 8
+echo "init2 done"
+# (sleep 1m; while true; do /bin/scanmem; sleep 1; done) &
 
-cat pt-init-log
 sleep 1
 
 # (while true; do
@@ -22,12 +48,11 @@ sleep 1
 #      sleep .1
 #  done) &
 
-(sleep 1m; while true; do /bin/scanmem; done) &
 
 while true; do
     for i in $(seq 1 80); do
 	sleep 1
-	memtool mw 0x23d2b0010 0 0xffffffff 0 0
+	# memtool mw 0x23d2b0010 0 0xffffffff 0 0
 	# echo heartbeat > /sys/class/leds/kbd_backlight/trigger
 	memtool mw 0x235044018 0 128
 	memtool mw 0x235044000 0x4239
@@ -36,7 +61,7 @@ while true; do
 	memtool mw 0x23b7001e0 0xf
 	# #	cat /proc/interrupts
 	# #	cat /proc/iomem
-	memtool mw 0x23d2b0010 0 0xffffffff 0 0
+	# memtool mw 0x23d2b0010 0 0xffffffff 0 0
 	sleep 1
 	memtool mw 0x235044018 128 0
 	memtool mw 0x235044000 0x4239
@@ -47,7 +72,7 @@ while true; do
 	#cat /proc/interrupts
 	#cat /proc/iomem
 	# [ -e /start-wait4mmio ] && (rm /start-wait4mmio; (while true; do wait4mmio >> /log 2> /log2; done) &)
-	[ -e /start-wait4mmio ] && (rm /start-wait4mmio; (while true; do wait4mmio; done) & pt unmap-pa 0x23b100000)
+	#[ -e /start-wait4mmio ] && (rm /start-wait4mmio; (while true; do wait4mmio; done) & pt unmap-pa 0x23b100000)
 	# pt remap-pa 0x23b100000
     done
 done
