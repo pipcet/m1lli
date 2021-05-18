@@ -365,80 +365,6 @@ mmio_pa_range_pt::load(mmio_insn *insn, u64 pa)
   return pa_range_cache->load(insn, pa);
 }
 
-#if 0
-class mmio_va_range_pt
-  : public mmio_va_range_pa {
-public:
-  mmio_pterange pte[2048];
-  u64 *fake;
-  int level;
-  unsigned long off0;
-  unsigned long off1;
-  unsigned long off2;
-
-  virtual void store(mmio_insn *insn, u128 val);
-  virtual u128 load(mmio_insn *insn);
-
-  mmio_va_range_pt(mmio_pa_range *pa_range,
-		   u64 pa, int level, unsigned long off0, unsigned long off1,
-		   unsigned long off2)
-    : mmio_va_range_pa(pa_range, pa, pa + 0x4000), level(level), off0(off0), off1(off1),
-      off2(off2), fake(new u64[2048])
-  {
-    for (int i = 0; i < 2048; i++) {
-      pte[i].level = level + 1;
-      pte[i].va0 = offs_to_va2(off0, off1, off2, 1);
-    }
-  }
-
-  mmio_va_range *virtualize(u64 oldva, u64 va, u64 va_end)
-  {
-    mmio_va_range_pt *newrange = new mmio_va_range_pt(pa_range, pa, level, off0, off1, off2);
-    newrange->va = va;
-    newrange->va_end = va_end;
-    delete newrange->fake;
-    newrange->fake = fake;
-    return newrange;
-  }
-};
-
-void mmio_va_range_pt::store(mmio_insn *insn, u128 val)
-{
-  if (val & 1) {
-    u64 pa = val & 0xfffffff000;
-    mmio_va_range *range = mmio_va_ranges.find_range(pa);
-    print(mmio_log, "request to install mapping for %016lx, range %p\n", pa,
-	  range);
-    if (range) {
-      print(mmio_log, "prohibiting!\n%s", "");
-      u64 mapped_va = offs_to_va2(off0, off1, off2 + i, 1);
-      mmio_va_ranges.insert_range(range->virtualize(range->va,
-						    offs_to_va2(off0, off1, off2 + i, 1),
-						    offs_to_va2(off0, off1, off2 + i, 1) + 0x4000));
-      print(mmio_log, "prohibited write to page table at %016lx/%016lx\n",
-	    insn->va, mapped_va);
-      return;
-    }
-  }
-
-  mmio_va_range_pa::store(insn, val);
-}
-
-u128 mmio_va_range_pt::load(mmio_insn *insn)
-{
-  u128 ret = fake[(insn->va & 0x3ff8)/8];
-  print(mmio_log, "wait, who's reading a page table? %016lx -> %016lx\n",
-	insn->elr, (u64)ret);
-  return ret;
-  // handle pt stuff
-  u64 off = (insn->va >> 3) & 2047;
-  u64 off_end = off + 2;
-  if (off_end > 2048)
-    off_end = 2048;
-  u64 addr = off0 << (14 + 11 + 11);
-  return mmio_va_range_pa::load(insn);
-}
-#endif
 
 void mmio_pa_range::store(mmio_insn *, u64, u128)
 {
@@ -633,25 +559,6 @@ class mmio_va_range_ignore
 {
   virtual bool handle_insn(mmio_insn *insn);
 };
-
-#if 0
-class mmio_delay_decay {
-  double delay;
-  double decay;
-};
-
-class mmio_va_range_delay
-  : public mmio_va_range {
-  mmio_delay_decay *delay_decay;
-
-  mmio_va_range *lower;
-
-  mmio_va_range_delay(mmio_va_range *lower, double delay = .025, double decay = .999)
-    : lower(lower), delay(delay), decay(decay), mmio_va_range(nullptr)
-  {
-  }
-};
-#endif
 
 void mmio_va_range::insn_side_effects(unsigned long frame, unsigned insn,
 				   unsigned long level0)
@@ -882,18 +789,6 @@ bool simulate_insn(unsigned long frame, unsigned insn,
   return true;
 }
 
-#if 0
-void read_table(FILE *f)
-{
-  unsigned long start, stop, action;
-  while (fscanf(f, "%ld %ld %ld\n", &start, &stop, &action) == 3) {
-    mmio_va_range *range = new mmio_va_range_pa(start, stop);
-    range = new mmio_va_range_log(range);
-    mmio_va_ranges.insert_range(range);
-  }
-}
-#endif
-
 void unmap_pa_range(u64 addr, u64 addr2)
 {
 }
@@ -1032,22 +927,6 @@ static void steal_page_table(u64 pt)
 	    u64 page = pte3 & 0xfffffff000;
 	    u64 va = offs_to_va2(off0, off1, off2, 1);
 	    if (pte3 & 1) {
-#if 0
-	      if (pts.count(page)) {
-		mmio_pa_range_pt *range;
-	      }
-	      if (pts.count(page)) {
-		mmio_va_range_pt *range =
-		  new mmio_va_range_pt
-		  (new mmio_pa_range_pt(page, page + 0x4000),
-		   page, 3, off0, off1, off2);
-		for (int i = 0; i < 2048; i++)
-		  range->fake[i] = read64(page + 8 * i);
-		mmio_va_ranges.insert_range(range);
-		mmio_va_ranges.virtualize_range(range,
-					     range->va, va, va + 0x4000);
-	      }
-#endif
 	    }
 	  }
 	} else if (pte2 & 1) {
@@ -1115,86 +994,10 @@ static void steal_page_table(u64 pt)
 static void handle_mmio()
 {
   //print(mmio_log, "handling mmio!%s\n", "");
-#if 0
-  u64 pt0 = read64(ppage + 0x3fe0);
-  for (unsigned long off0 = 0; off0 < 2048; off0++) {
-    u64 pte1 = read64(pt0 + 8 * off0);
-    u64 level1 = pte1 & 0xfffffff000;
-    if ((pte1 & 3) == 3) {
-      for (unsigned long off1 = 0; off1 < 2048; off1++) {
-	u64 pte2 = read64(level1 + 8 * off1);
-	u64 level2 = pte2 & 0xfffffff000;
-	if ((pte2 & 3) == 3) {
-	  for (unsigned long off2 = 0; off2 < 2048; off2++) {
-	    u64 pte3 = read64(level2 + 8 * off2);
-	    u64 page = pte3 & 0xfffffff000;
-	    if (pte3 & 1) {
-	      print(mmio_log, "found page table at (%016lx %016lx %016lx), unmapping\n", pt0 + 8 * off0, level1 + 8 * off1, level2 + 8 * off2);
-	    }
-	  }
-	} else if ((pte2 & 3) == 1) {
-	  print(mmio_log, "found large block %016lx-%016lx at %016lx %016lx\n",
-		pte2,
-		level2 + (1 << (14 + 11)), pt0 + 8 * off0, level1 + 8 * off1);
-	}
-      }
-    } else if ((pte1 & 3) == 1) {
-      print(mmio_log, "found huge block %016lx at %016lx\n",
-	    pte1, pt0 + 8 * off0);
-    }
-  }
-#endif
   if (read64(ppage + 0x3f08) != 0x141ef) {
     steal_page_table(read64(ppage + 0x3fe8));
     write64(ppage + 0x3f08, 0x141ef);
   }
-#if 0
-  u64 pt1 = read64(ppage + 0x3fe8);
-  for (unsigned long off0 = 0; off0 < 2048; off0++) {
-    u64 pte1 = read64(pt1 + 8 * off0);
-    u64 level1 = pte1 & 0xfffffff000;
-    if ((pte1 & 3) == 3) {
-      for (unsigned long off1 = 0; off1 < 2048; off1++) {
-	u64 pte2 = read64(level1 + 8 * off1);
-	u64 level2 = pte2 & 0xfffffff000;
-	if ((pte2 & 3) == 3) {
-	  for (unsigned long off2 = 0; off2 < 2048; off2++) {
-	    u64 pte3 = read64(level2 + 8 * off2);
-	    u64 page = pte3 & 0xfffffff000;
-	    if (pte3 & 1) {
-	      if (page == pt1)
-		print(mmio_log, "found page table[1] %016lx -> %016lx at (%016lx %016lx %016lx), unmapping\n", offs_to_va2(off0, off1, off2, 1), page, pt1 + 8 * off0, level1 + 8 * off1, level2 + 8 * off2);
-	    }
-	  }
-	} else if ((pte2 & 3) == 1) {
-	  print(mmio_log, "found large block %016lx at %016lx %016lx\n",
-		pte2, pt1 + 8 * off0, level1 + 8 * off1);
-	}
-      }
-    } else if ((pte1 & 3) == 1) {
-      print(mmio_log, "found huge block %016lx at %016lx\n",
-	    pte1, pt1 + 8 * off0);
-    }
-  }
-  if (read64(ppage + 0x3f08) == 0xb9000c000) {
-    print(mmio_log, "page table already stolen. (%016lx)\n", read64(ppage + 0x3fe8));
-  } else {
-#if 0
-    for (int i = 0; i < 2048; i++) {
-      u64 pte = read64(read64(ppage + 0x3fe8) + 8 * i);
-      write64(0xb9000c000 + 8 * i, pte);
-      u64 addr = pte & 0xfffffff000;
-      if ((pte & 3) == 3) {
-	write64(read64(ppage + 0x3fe8) + 8 * i, copypage(addr));
-      } else if (pte & 1) {
-	print(mmio_log, "cannot handle large block (%016lx)\n", pte);
-      }
-    }
-    write64(ppage + 0x3f08, 0xb9000c000);
-#endif
-    print(mmio_log, "stealing page table (%016lx)\n", read64(ppage + 0x3fe8));
-  }
-#endif
   u64 success = 0;
   u64 esr = read64(ppage + 0x3fd8);
   u64 elr = read64(ppage + 0x3ff8);
@@ -1229,24 +1032,6 @@ static void handle_mmio()
     asm volatile("isb");
     u64 event = read64(ppage + 0x3fb8);
     write64(ppage + 0x3fb0, 0);
-#if 0
-    if (1) {
-      unsigned long addr = far;
-      unsigned long off0 = (addr >> (14 + 11 + 11)) & 2047;
-      unsigned long off1 = (addr >> (14 + 11)) & 2047;
-      unsigned long off2 = (addr >> (14)) & 2047;
-      unsigned long level0 = read64(ppage + 0x3fe8) & 0xfffffff000;
-      if (!(read64(level0 + off0 * 8) & 1))
-	return 1;
-      unsigned long level1 = read64(level0 + off0 * 8) & 0xfffffff000;
-      if (!(read64(level1 + off1 * 8) & 1))
-	return 1;
-      unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
-      if (!(read64(level2 + off2 * 8) & 1))
-	return 1;
-      write64(level2 + off2 * 8, read64(level2 + off2 * 8) &~ 1L);
-    }
-#endif
     write64(ppage + 0x3ff0, 0);
     print(mmio_log, "interrupt event %08lx\n", event);
     //write64_to_va(va, event, read64(ppage + 0x3fe8));
@@ -1544,13 +1329,6 @@ int main2(int argc, char **argv)
 	}
 	unsigned long level3 = read64(level2 + off2 * 8) & 0xfffffff000;
 	if (success) {
-#if 0
-	  print("FAR %016lx ELR %016lx ESR %016lx insn %08x\n", far, elr, esr,
-		insn);
-
-	  print("PA %016lx\n", level3);
-	  fflush(stdout);
-#endif
 	}
       } while (0);
       if (!success) {
