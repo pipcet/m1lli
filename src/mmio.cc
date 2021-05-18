@@ -34,7 +34,8 @@ typedef unsigned __int128 u128;
 
 class mmio_pterange {
 public:
-  u64 pa0;
+  u64 pa0; /* mapped physical address, 0 for table */
+  u64 pt0; /* mapped page table physical address, 0 for page entry */
   u64 va0;
   u64 ptep;
   u64 pte;
@@ -47,6 +48,8 @@ public:
   std::vector<u64> pages()
   {
     std::vector<u64> ret;
+    if (!pa0)
+      return ret;
     u64 size = 1;
     if (level == 2)
       size = 1 << 11;
@@ -157,12 +160,6 @@ public:
 
   virtual void store(mmio_insn *insn, u64 pa, u128 val);
   virtual u128 load(mmio_insn *insn, u64 pa);
-
-  mmio_pa_range_pt(u64 pa, u64 pa_end)
-    : mmio_pa_range(pa, pa_end), pa_range_pa(new mmio_pa_range_pa(pa, pa_end)),
-      pa_range_cache(new mmio_pa_range_cache(pa, pa_end))
-  {
-  }
 
   mmio_pa_range_pt(u64 pa, u64 pa_end, mmio_pterange pterange)
     : mmio_pa_range(pa, pa_end), pa_range_pa(new mmio_pa_range_pa(pa, pa_end)),
@@ -339,6 +336,14 @@ mmio_pa_range_pt::store(mmio_insn *insn, u64 pa, u128 val)
   if (insn->size != 8)
     abort();
   pa_range_cache->store(insn, pa, val);
+  if (false && pterange.level < 3) {
+    u64 pte = val;
+    u64 pt = val & PAGE_TABLE_PAGE_MASK;
+    mmio_pterange pterange = this->pterange;
+    pterange.level++;
+    auto pt_range = new mmio_pa_range_pt(pt, pt + PAGE_SIZE, pterange);
+    mmio_pa_ranges.insert_range(pt_range);
+  }
   if (val & 1) {
     u64 pte = val;
     u64 mapped_pa = val & PAGE_TABLE_PAGE_MASK;
@@ -346,8 +351,8 @@ mmio_pa_range_pt::store(mmio_insn *insn, u64 pa, u128 val)
 				pterange.off1,
 				pterange.off2 + (pa & (PAGE_SIZE - 1)) / 8,
 				1);
-    print(mmio_log, "request to install mapping %016lx -> %016lx (%016lx %016lx)\n",
-	  mapped_va, mapped_pa, pa, pte);
+    print(mmio_log, "request to install mapping %016lx -> %016lx (%016lx %016lx) %ld %ld %ld at level %d\n",
+	  mapped_va, mapped_pa, pa, pte, pterange.off0, pterange.off1, pterange.off2, pterange.level);
     auto pa_range = mmio_pa_ranges.find_range(mapped_pa);
     if (pa_range) {
       auto va_range = pa_range->virtualize(mapped_pa, mapped_va,
@@ -824,6 +829,7 @@ static std::vector<mmio_pterange> pt_ranges(u64 pt)
 	    if (pte3 & 1) {
 	      mmio_pterange p;
 	      p.pa0 = page;
+	      p.pt0 = 0;
 	      p.va0 = va;
 	      p.ptep = level2 + 8 * off2;
 	      p.pte = pte3;
@@ -839,6 +845,21 @@ static std::vector<mmio_pterange> pt_ranges(u64 pt)
 	} else if (pte2 & 1) {
 	  mmio_pterange p;
 	  p.pa0 = level2;
+	  p.pt0 = 0;
+	  p.va0 = offs_to_va2(off0, off1, 0, 1);
+	  p.ptep = level1 + 8 * off1;
+	  p.pte = pte2;
+
+	  p.level = 2;
+	  p.off0 = off0;
+	  p.off1 = off1;
+	  p.off2 = 0;
+
+	  ret.push_back(p);
+	} else {
+	  mmio_pterange p;
+	  p.pa0 = 0;
+	  p.pt0 = level2;
 	  p.va0 = offs_to_va2(off0, off1, 0, 1);
 	  p.ptep = level1 + 8 * off1;
 	  p.pte = pte2;
@@ -851,6 +872,19 @@ static std::vector<mmio_pterange> pt_ranges(u64 pt)
 	  ret.push_back(p);
 	}
       }
+      mmio_pterange p;
+      p.pa0 = 0;
+      p.pt0 = level1;
+      p.va0 = offs_to_va2(off0, 0, 0, 1);
+      p.ptep = pt + 8 * off0;
+      p.pte = pte1;
+
+      p.level = 2;
+      p.off0 = off0;
+      p.off1 = 0;
+      p.off2 = 0;
+
+      ret.push_back(p);
     }
   }
 
@@ -894,101 +928,27 @@ static void steal_page_table(u64 pt)
       }
     }
   }
-  print(mmio_log, "found %ld page table pages\n", pts.size());
-  for (auto pte : ranges) {
-    for (auto page : pte.pages()) {
+  for (auto pterange : ranges) {
+    for (auto page : pterange.pages()) {
       if (pts.count(page)) {
-	auto pa_range = new mmio_pa_range_pt(page, page + 0x4000,
-					     pte);
+	auto pa_range = new mmio_pa_range_pt(page, page + 0x4000, pterange);
 	mmio_pa_ranges.insert_range(pa_range);
       }
     }
   }
+  unsigned long unmapped = 0;
   for (auto pte : ranges) {
     if (pts.count(pte.pa0)) {
       auto pa_range = mmio_pa_ranges.find_range(pte.pa0);
       auto va_range = pa_range->virtualize(pte.pa0, pte.va0, pte.va0 + 0x4000);
       mmio_va_ranges.insert_range(va_range);
+      print(mmio_log, "va_range %016lx\n", va_range->va);
       write64(pte.ptep, 0);
+      unmapped++;
     }
   }
-  for (unsigned long off0 = 0; off0 < 2048; off0++) {
-    u64 pte1 = read64(pt + 8 * off0);
-    u64 level1 = pte1 & 0xfffffff000;
-    if ((pte1 & 3) == 3) {
-      for (unsigned long off1 = 0; off1 < 2048; off1++) {
-	u64 pte2 = read64(level1 + 8 * off1);
-	u64 level2 = pte2 & 0xfffffff000;
-	auto pa_range = mmio_pa_ranges.find_range(level2);
-	
-	if ((pte2 & 3) == 3) {
-	  for (unsigned long off2 = 0; off2 < 2048; off2++) {
-	    u64 pte3 = read64(level2 + 8 * off2);
-	    u64 page = pte3 & 0xfffffff000;
-	    u64 va = offs_to_va2(off0, off1, off2, 1);
-	    if (pte3 & 1) {
-	    }
-	  }
-	} else if (pte2 & 1) {
-	  print(mmio_log, "found large block %016lx\n", level2);
-	  for (u64 pa = level2; pa < level2 + 0x1fffff; pa += 0x4000) {
-	    if (pts.count(pa)) {
-	      print(mmio_log, "oh no, page table in large block at %016lx\n",
-		    pa);
-	    }
-	  }
-	}
-      }
-    }
-  }
-  for (unsigned long off0 = 0; off0 < 2048; off0++) {
-    u64 pte1 = read64(pt + 8 * off0);
-    u64 level1 = pte1 & 0xfffffff000;
-    if ((pte1 & 3) == 3) {
-      for (unsigned long off1 = 0; off1 < 2048; off1++) {
-	u64 pte2 = read64(level1 + 8 * off1);
-	u64 level2 = pte2 & 0xfffffff000;
-	if ((pte2 & 3) == 3) {
-	  for (unsigned long off2 = 0; off2 < 2048; off2++) {
-	    u64 pte3 = read64(level2 + 8 * off2);
-	    u64 page = pte3 & 0xfffffff000;
-	    u64 va = offs_to_va2(off0, off1, off2, 1);
-	    if (pte3 & 1) {
-	      if (pts.count(page)) {
-		write64(level2 + 8 * off2, 0);
-	      }
-	    }
-	  }
-	} else if (pte2 & 1) {
-	  print(mmio_log, "found large block %016lx\n", level2);
-	  for (u64 pa = level2; pa < level2 + 0x1fffff; pa += 0x4000) {
-	    if (pts.count(pa)) {
-	      print(mmio_log, "oh no, page table in large block at %016lx\n",
-		    pa);
-	    }
-	  }
-	}
-      }
-    }
-  }
-  for (auto pterange : ranges) {
-    for (auto page : pterange.pages()) {
-      if (pts.count(page)) {
-	auto range = mmio_va_ranges.find_range(page);
-	if (!range) {
-	  print(mmio_log, "%016lx -> %016lx not found!\n", page, page);
-	} else {
-	  mmio_va_ranges.virtualize_range(range, range->va,
-					  pterange.va0, pterange.va0 + 0x4000);
-	}
-      }
-      if (pts.count(page)) {
-	auto range = mmio_va_ranges.find_range(pterange.va0);
-	if (!range)
-	  print(mmio_log, "%016lx -> %016lx not found!\n", pterange.va0, page);
-      }
-    }
-  }
+  print(mmio_log, "found %ld page table pages, unmapped %ld\n", pts.size(),
+	unmapped);
 }
 
 static void handle_mmio()
@@ -996,7 +956,7 @@ static void handle_mmio()
   //print(mmio_log, "handling mmio!%s\n", "");
   if (read64(ppage + 0x3f08) != 0x141ef) {
     steal_page_table(read64(ppage + 0x3fe8));
-    write64(ppage + 0x3f08, 0x141ef);
+    //write64(ppage + 0x3f08, 0x141ef);
   }
   u64 success = 0;
   u64 esr = read64(ppage + 0x3fd8);
@@ -1064,83 +1024,13 @@ static void handle_mmio()
   }
 
   if (!success)
-  print(mmio_log, "success: %d\n", success);
+    print(mmio_log, "success: %d\n", success);
   write64(ppage + 0x3fd0, success);
   asm volatile("dmb sy" : : : "memory");
   asm volatile("dsb sy");
   asm volatile("isb");
   write64(ppage + 0x3ff0, 0);
   return;
-}
-
-static void reread_page_table(u64 level0, int high)
-{
-  unsigned long new_level0 = high ? 0xb9000c000 : 0xb90008000;
-  //print(mmio_log, "level0 %016lx\n", level0);
-  unsigned long off0, off1, off2;
-  for (off0 = 0; off0 < 2048; off0++) {
-    u64 pte1 = read64(level0 + off0 * 8);
-    if (!(pte1 & 1))
-      continue;
-    if ((pte1 & 3) == 1)
-      continue;
-    u64 level1 = pte1 & 0xfffffff000;
-    u64 new_pte1 = (pte1 &~ level1) | alloc_page();
-    u64 new_level1 = new_pte1 & 0xffffffff000;
-    write64(new_level0 + 8 * off0, new_pte1);
-    //print(mmio_log, "level1 %016lx\n", level1);
-    for (off1 = 0; off1 < 2048; off1++) {
-      u64 pte2 = read64(level1 + off1 * 8);
-      if ((pte2 & 3) == 1) {
-	//f(pte2, offs_to_va(off0, off1, 0), 2, cookie);
-	continue;
-      }
-      if (!(pte2 & 1))
-	continue;
-      u64 level2 = pte2 & 0xfffffff000;
-      u64 new_pte2 = (pte2 &~ level2) | alloc_page();
-      u64 new_level2 = new_pte2 & 0xffffffff000;
-      write64(new_level1 + 8 * off1, new_pte2);
-      //print(mmio_log, "level2 %016lx\n", level2);
-      for (off2 = 0; off2 < 2048; off2++) {
-	u64 pte3 = read64(level2 + off2 * 8);
-	if (!(pte3 & 1))
-	  continue;
-	u64 level3 = pte3 & 0xfffffff000;
-
-	write64(new_level2 + 8 * off2, pte3);
-	//print(mmio_log, "level3 %016lx\n", level3);
-	mmio_va_range *range = mmio_va_ranges.find_range(level3);
-	if (range) {
-	  u64 va = offs_to_va2(off0, off1, off2, high);
-
-	  mmio_va_ranges.virtualize_range(range, level3, va &~ 0x3fffL,
-				       (va | 0x3fffL) + 1);
-	  static int count = 0;
-	  if (count++ < 100)
-	    print(mmio_log, "unmapping pte %016lx at %016lx\n", pte3, va);
-	  write64(level2 + off2 * 8, pte3 &~ 1L);
-	}
-      }
-    }
-  }
-}
-
-static void reread_page_tables()
-{
-  reread_page_table(read64(ppage + 0x3e08), 1);
-  reread_page_table(read64(ppage + 0x3e10), 0);
-}
-
-static std::vector<u64> pt_addrs;
-static void handle_pt(u64 addr)
-{
-  //print(mmio_log, "PT changed, rereading%s\n", "");
-  reread_page_tables();
-  if (read64(addr) == MAGIC_WORD) {
-    //print(mmio_log, "continuing after PT change%s\n", "");
-    write64(addr, 0);
-  }
 }
 
 static unsigned long base;
@@ -1160,193 +1050,7 @@ void mainloop()
 {
   if (read64(ppage + 0x3ff0) != 0) {
     handle_mmio();
-  } else {
-    for (auto addr : pt_addrs) {
-      if (read64(addr) == MAGIC_WORD) {
-	handle_pt(addr);
-	return;
-      }
-    }
-    if (sometimes()) {
-      for (u64 addr = 0x800000000; addr < 0xa00000000; addr += 16384) {
-	if (read64(addr) == MAGIC_WORD) {
-	  for (auto addr2 : pt_addrs)
-	    if (addr == addr2)
-	      return;
-	  print(mmio_log, "new PT addr %016lx\n", addr);
-	  pt_addrs.push_back(addr);
-	}
-      }
-    }
   }
-}
-
-int main2(int argc, char **argv)
-{
-  if (strcmp(argv[1], "unmap-pa") == 0) {
-    char *range = argv[1];
-    while (range && range[0]) {
-      unsigned long addr = strtoll(range, &range, 0), addr2;
-      if (range[0] == '-') {
-	addr2 = strtoll(range + 1, &range, 0);
-      } else {
-	addr2 = addr + 0x3fff;
-      }
-      unmap_pa_range(addr, addr2);
-      if (range[0] == ',') {
-	range++;
-      }
-    }
-  }
-  log = fopen("/mmio-log", "a");
-  if (!log)
-    log = stdout;
-  //write64(ppage + 0x3ff8, 0xffffffff);
-  write64(ppage + 0x3fb0, 0);
-  printf("initialized\n");
-  asm volatile("dmb sy");
-  asm volatile("dsb sy");
-  asm volatile("isb");
-  unsigned long far;
-
-  write64(ppage + 0x3e00, 0xffffffff);
-  while (true) {
-    bool success = false;
-    while ((far = read64(ppage + 0x3ff0)) == 0)
-      sched_yield();
-    unsigned long esr = read64(ppage + 0x3fd8);
-    unsigned long elr = read64(ppage + 0x3ff8);
-    if ((esr & 0xfc000000UL) != 0x54000000UL) {
-      if ((esr & 0xfc000000UL) == 0x88000000) {
-	static int seen = 0;
-	if (!seen) {
-	  seen = 1;
-	  printf("received brk esr %016lx at %016lx!\n", esr, elr);
-	}
-      } else {
-	//printf("received brk esr %016lx at %016lx!\n", esr, elr);
-      }
-    }
-    if ((esr & 0x0f8000000UL) != 0x090000000UL) {
-      write64(ppage + 0x3fd0, success);
-      asm volatile("dmb sy" : : : "memory");
-      asm volatile("dsb sy");
-      asm volatile("isb");
-      write64(ppage + 0x3ff0, 0);
-      continue;
-    }
-    if ((esr & 0xf8000000) == 0x90000000) {
-      //print("event %08lx\n", esr);
-      unsigned long va;
-      if ((va = read64(ppage + 0x3fb0))) {
-	print(mmio_log, "interrupt event (unknown)%s\n", "");
-	asm volatile("dmb sy" ::: "memory");
-	asm volatile("dsb sy");
-	asm volatile("isb");
-	asm volatile("dmb sy" ::: "memory");
-	asm volatile("dsb sy");
-	asm volatile("isb");
-	//while (read64(ppage + 0x3fb0));
-	asm volatile("dmb sy" ::: "memory");
-	asm volatile("dsb sy");
-	asm volatile("isb");
-	u64 event = read64(ppage + 0x3fb8);
-	write64(ppage + 0x3fb0, 0);
-	if (1) {
-	  unsigned long addr = far;
-	  unsigned long off0 = (addr >> (14 + 11 + 11)) & 2047;
-	  unsigned long off1 = (addr >> (14 + 11)) & 2047;
-	  unsigned long off2 = (addr >> (14)) & 2047;
-	  unsigned long level0 = read64(ppage + 0x3fe8) & 0xfffffff000;
-	  if (!(read64(level0 + off0 * 8) & 1))
-	    return 1;
-	  unsigned long level1 = read64(level0 + off0 * 8) & 0xfffffff000;
-	  if (!(read64(level1 + off1 * 8) & 1))
-	    return 1;
-	  unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
-	  if (!(read64(level2 + off2 * 8) & 1))
-	    return 1;
-	  write64(level2 + off2 * 8, read64(level2 + off2 * 8) &~ 1L);
-	}
-	write64(ppage + 0x3ff0, 0);
-	print(mmio_log, "interrupt event %08lx\n", event);
-	//write64_to_va(va, event, read64(ppage + 0x3fe8));
-	continue;
-      }
-      do {
-	unsigned insn = 0;
-
-	unsigned long va = far;
-	unsigned long off0 = (va >> (14 + 11 + 11)) & 2047;
-	unsigned long off1 = (va >> (14 + 11)) & 2047;
-	unsigned long off2 = (va >> (14)) & 2047;
-	unsigned long level0 = read64(ppage + 0x3e08);
-	if (!(read64(level0 + off0 * 8) & 1))
-	  break;
-	unsigned long level1 = read64(level0 + off0 * 8) & 0xfffffff000;
-	if (!(read64(level1 + off1 * 8) & 1))
-	  break;
-	unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
-	if (!(read64(level2 + off2 * 8) & 1)) {
-	  //print("esr %016lx elr %016lx\n", esr, elr);
-	  //print("esr %016lx elr %016lx\n", esr, elr);
-	  unsigned long pa, va, action;
-	  FILE *f = fopen("/mmio-map", "r");
-	  while (fscanf(f, "%ld %ld %ld\n", &pa, &va, &action) == 3) {
-	    if ((read64(level2 + off2 * 8) & 0xffffffc000) == pa) {
-	      success = true;
-	      insn = insn_at_va(elr, read64(ppage + 0x3fe8));
-	      if (simulate_insn(read64(ppage + 0x3fc8), insn, elr, far, pa,
-				read64(ppage + 0x3fe8), action)) {
-		static int count = 32768;
-		if (count-- == 0) {
-		  count = 32768;
-		  //sleep(10);
-		}
-		write64(ppage + 0x3ff8, elr + 4);
-		write64(ppage + 0x3fd0, success);
-		asm volatile("dmb sy");
-		asm volatile("dsb sy");
-		asm volatile("isb");
-		write64(ppage + 0x3ff0, 0);
-	      } else {
-		write64(level2 + off2 * 8, read64(level2 + off2 * 8) | 1);
-		write64(ppage + 0x3fd0, success);
-		asm volatile("dmb sy");
-		asm volatile("dsb sy");
-		asm volatile("isb");
-		write64(ppage + 0x3ff0, 0);
-		print(mmio_log,
-		      "remapping page at %016lx %016lx after %08x, %08x, %08x at %016lx\n", pa, va,
-		      insn, insn_at_va(elr, read64(ppage + 0x3fe8)),
-		      insn_at_va(elr, read64(ppage + 0x3fe0)),
-		      elr);
-	      }
-	      break;
-	    }
-	  }
-	  fclose (f);
-	}
-	unsigned long level3 = read64(level2 + off2 * 8) & 0xfffffff000;
-	if (success) {
-	}
-      } while (0);
-      if (!success) {
-	write64(ppage + 0x3fd0, success);
-	asm volatile("dmb sy");
-	asm volatile("dsb sy");
-	asm volatile("isb");
-	write64(ppage + 0x3ff0, 0);
-      }
-    } else if ((esr & 0xfc000000 == 0xf0000000)) {
-    } else if ((esr & 0xfc000000 == 0xf0000000)) {
-      // handle BRK
-    }
-  }
-}
-
-static void start_pt()
-{
 }
 
 static void start_mmio()
@@ -1369,27 +1073,17 @@ int main(int argc, char **argv)
   mmio_pa_ranges.insert_range
     (new mmio_pa_range_log
      (new mmio_pa_range_nop(0x23d2b0000, 0x23d2c0000)));
-#if 0
-  mmio_va_ranges.insert_range
-    (new mmio_va_range_log
-     (new mmio_va_range_nop(0x23d2b0000, 0x23d2c0000)));
-  mmio_va_ranges.insert_range
-    (new mmio_va_range_log
-     (new mmio_va_range_pa(new mmio_pa_range_pa(0x200000000, 0x23b000000))));
-  mmio_va_ranges.insert_range
-    (new mmio_va_range_log
-     (new mmio_va_range_pa(new mmio_pa_range_pa(0x23b200000, 0x300000000),
-			   0x23b200000, 0x300000000)));
-  mmio_va_ranges.insert_range
-    (new mmio_va_range_log
-     (new mmio_va_range_pa(new mmio_pa_range_pa(0xbdf438000, 0xbe03d8000))));
-#endif
-
-  pt_addrs.push_back(base + 0x3e70000 + (0x8097cc000 - 0x804dd0000));
-  pt_addrs.push_back(base + 0x3e74000 + (0x8097cc000 - 0x804dd0000));
+  mmio_pa_ranges.insert_range
+    (new mmio_pa_range_log
+     (new mmio_pa_range_pa(0x200000000, 0x23b000000)));
+  mmio_pa_ranges.insert_range
+    (new mmio_pa_range_log
+     (new mmio_pa_range_pa(0x23b200000, 0x300000000)));
+  mmio_pa_ranges.insert_range
+    (new mmio_pa_range_log
+     (new mmio_pa_range_pa(0xbdf438000, 0xbe03d8000)));
 
   start_mmio();
-  start_pt();
 
   while (true)
     mainloop();
