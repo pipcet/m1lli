@@ -404,29 +404,31 @@ void iterate_pt(unsigned long level0, void (*f)(unsigned long pte, unsigned long
   }
 }
 
+static void f2(unsigned long pte, unsigned long va, int level, void *cookie)
+{
+  static unsigned long seen_tags[16] = { 0, };
+  unsigned long ptepa = pte & 0xfffffff000;
+  unsigned long tags = pte &~ ptepa;
+  int i;
+  for (i = 0; i < 16; i++) {
+    if (tags == seen_tags[i])
+      return;
+    if (!seen_tags[i])
+      break;
+  }
+  if (i < 16)
+    seen_tags[i] = tags;
+  printf("%016llx %016llx %d\n", va, pte, level);
+}
+
 void dump_pt_compressed(unsigned long level0)
 {
-  unsigned long seen_tags[16] = { 0, };
-  void f(unsigned long pte, unsigned long va, int level, void *cookie)
-  {
-    unsigned long ptepa = pte & 0xfffffff000;
-    unsigned long tags = pte &~ ptepa;
-    int i;
-    for (i = 0; i < 16; i++) {
-      if (tags == seen_tags[i])
-	return;
-      if (!seen_tags[i])
-	break;
-    }
-    if (i < 16)
-      seen_tags[i] = tags;
-    printf("%016llx %016llx %d\n", va, pte, level);
-  }
-  iterate_pt(level0, f, NULL);
+  iterate_pt(level0, f2, NULL);
 }
 
 static void f(unsigned long pte, unsigned long va, int level, void *cookie)
 {
+  static unsigned long seen_tags[16] = { 0, };
   if (!(pte & 1))
     return;
   unsigned long ptepa = pte & 0xfffffff000;
