@@ -1,43 +1,44 @@
-#include <stdbool.h>
-#include <sys/fcntl.h>
-#include <unistd.h>
-#include <sys/mman.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <sys/fcntl.h>
-#include <unistd.h>
-#include <sys/mman.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <time.h>
-#include <sched.h>
-#include <sys/time.h>
 #include <map>
+#include <sched.h>
 #include <set>
-#include <string>
-#include <vector>
-#include <unordered_map>
 #include <signal.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <string>
+#include <sys/fcntl.h>
+#include <sys/mman.h>
+#include <sys/time.h>
+#include <time.h>
 #include <ucontext.h>
+#include <unistd.h>
+#include <unordered_map>
+#include <vector>
 
-#include "../asm-snippets/new-irq-handler-part1..h"
-#include "../asm-snippets/new-irq-handler-part2..h"
-#include "../asm-snippets/infloop..h"
-#include "../asm-snippets/irq-handler-store-ttbr..h"
-#include "../asm-snippets/irq-handler-store-magic-cookie..h"
-#include "../asm-snippets/new-vbar-entry..h"
-#include "../asm-snippets/new-vbar-entry-special..h"
-#include "../asm-snippets/new-vbar-entry-for-mrs..h"
 #include "../asm-snippets/delay-loop..h"
-#include "../asm-snippets/expose-ttbr..h"
 #include "../asm-snippets/expose-ttbr-2..h"
 #include "../asm-snippets/expose-ttbr-to-stack..h"
-#include "../asm-snippets/wait-for-confirmation..h"
-#include "../asm-snippets/wait-for-confirmation-receiver..h"
-#include "../asm-snippets/wait-for-confirmation-receiver-part2..h"
+#include "../asm-snippets/expose-ttbr..h"
+#include "../asm-snippets/infloop..h"
+#include "../asm-snippets/irq-handler-store-magic-cookie..h"
+#include "../asm-snippets/irq-handler-store-ttbr..h"
+#include "../asm-snippets/new-irq-handler-part1..h"
+#include "../asm-snippets/new-irq-handler-part2..h"
+#include "../asm-snippets/new-vbar-entry-for-mrs..h"
+#include "../asm-snippets/new-vbar-entry-special..h"
+#include "../asm-snippets/new-vbar-entry..h"
 #include "../asm-snippets/optimized-putc..h"
+#include "../asm-snippets/wait-for-confirmation-receiver-part2..h"
+#include "../asm-snippets/wait-for-confirmation-receiver..h"
+#include "../asm-snippets/wait-for-confirmation..h"
+
+#define MAGIC_WORD 0x140008b6b5fffff8
+#define U64_MAX 0xffffffffffffffff
+#define PAGE_SIZE (16384L)
+#define PAGE_TABLE_PAGE_MASK (0xfffffff000UL)
+#define MASK_T (0x1f)
+#define MASK_N (0x1f << 5)
 
 struct commpage {
   unsigned long code[0x3000/8];
@@ -445,16 +446,8 @@ static void f(unsigned long pte, unsigned long va, int level, void *cookie)
 
 void dump_pt(unsigned long level0)
 {
-  unsigned long seen_tags[16] = { 0, };
   iterate_pt(level0, f, NULL);
 }
-
-#define MAGIC_WORD 0x140008b6b5fffff8
-#define U64_MAX 0xffffffffffffffff
-#define PAGE_SIZE (16384L)
-#define PAGE_TABLE_PAGE_MASK (0xfffffff000UL)
-#define MASK_T (0x1f)
-#define MASK_N (0x1f << 5)
 
 static FILE *log;
 static FILE *pt_log;
