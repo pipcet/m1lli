@@ -1991,7 +1991,7 @@ int main(int argc, char **argv)
   if (!pt_log)
     pt_log = stdout;
 
-  if (argv[1] && strcmp(argv[1], "init"), 0) {
+  if (argv[1] && strcmp(argv[1], "init") == 0) {
     printf("reading base...\n");
     unsigned long base = read64(0xac0000008);
     write64(0xb90003e88, 0);
