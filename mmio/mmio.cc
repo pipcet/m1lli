@@ -174,7 +174,7 @@ unsigned long install_page(unsigned long va, unsigned long pa, int typeidx,
   level0 &= 0xffffffff000;
  again:
   if (!(read64(level0 + off0 * 8) & 1)) {
-    write64(level0 + off0 * 8, alloc_page() | 3);
+    write64(level0 + off0 * 8, alloc_page() | 3 /* | 0x1800000000000000 */);
     goto again;
   }
   fprintf(stderr, "using %016lx at %016lx\n",
@@ -203,12 +203,7 @@ unsigned long install_page(unsigned long va, unsigned long pa, int typeidx,
   return pa;
 }
 
-unsigned long offs_to_va(unsigned long off0, unsigned long off1, unsigned long off2)
-{
-  return 0xffff000000000000 + (off0 << (14 + 11 + 11)) + (off1 << (14 + 11)) + (off2 << 14);
-}
-
-unsigned long offs_to_va2(unsigned long off0, unsigned long off1, unsigned long off2, int high)
+unsigned long offs_to_va(unsigned long off0, unsigned long off1, unsigned long off2, int high)
 {
   return (high ? 0xffff800000000000 : 0) + (off0 << (14 + 11 + 11)) + (off1 << (14 + 11)) + (off2 << 14);
 }
@@ -366,18 +361,6 @@ unsigned long level0_ttbr(void)
   return read64(0xb90003e08);
 }
 
-unsigned long level1_ptep(unsigned long va)
-{
-}
-
-unsigned long level2_ptep(unsigned long va)
-{
-}
-
-unsigned long level3_ptep(unsigned long va)
-{
-}
-
 void iterate_pt(unsigned long level0, void (*f)(unsigned long pte, unsigned long va,
 						int level, void *cookie), void *cookie)
 {
@@ -390,7 +373,7 @@ void iterate_pt(unsigned long level0, void (*f)(unsigned long pte, unsigned long
     for (off1 = 0; off1 < 2048; off1++) {
       unsigned long pte2 = read64(level1 + off1 * 8);
       if ((pte2 & 3) == 1) {
-	f(pte2, offs_to_va(off0, off1, 0), 2, cookie);
+	f(pte2, offs_to_va(off0, off1, 0, 1), 2, cookie);
 	continue;
       }
       if (!(pte2 & 1))
@@ -399,7 +382,7 @@ void iterate_pt(unsigned long level0, void (*f)(unsigned long pte, unsigned long
       for (off2 = 0; off2 < 2048; off2++) {
 	unsigned long pte3 = read64(level2 + off2 * 8);
 
-	f(pte3, offs_to_va(off0, off1, off2), 3, cookie);
+	f(pte3, offs_to_va(off0, off1, off2, 1), 3, cookie);
       }
     }
   }
@@ -540,7 +523,7 @@ std::vector<mmio_pterange> mmio_pterange::sub_ranges()
       p.ttbr = ttbr;
       p.pa0 = 0;
       p.pt0 = 0;
-      p.va0 = offs_to_va2(off0, 0, 0, 1);
+      p.va0 = offs_to_va(off0, 0, 0, 1);
       p.ptep = ptep;
       p.pte = pte;
       p.level = 1;
@@ -568,7 +551,7 @@ std::vector<mmio_pterange> mmio_pterange::sub_ranges()
       p.ttbr = ttbr;
       p.pa0 = 0;
       p.pt0 = 0;
-      p.va0 = offs_to_va2(off0, off1, 0, 1);
+      p.va0 = offs_to_va(off0, off1, 0, 1);
       p.ptep = ptep;
       p.pte = pte;
       p.level = 2;
@@ -596,7 +579,7 @@ std::vector<mmio_pterange> mmio_pterange::sub_ranges()
       p.ttbr = ttbr;
       p.pa0 = 0;
       p.pt0 = 0;
-      p.va0 = offs_to_va2(off0, off1, off2, 1);
+      p.va0 = offs_to_va(off0, off1, off2, 1);
       p.ptep = ptep;
       p.pte = pte;
       p.level = 3;
@@ -1081,28 +1064,44 @@ mmio_pa_range_pt::store_u64(u64 pa, u64 val)
   u64 prev_pte = pa_range_cache->load_u64(pa);
   if (pterange.level < 2 && (val & 3) == 3) {
     mmio_pa_range *newrange = mmio_pa_ranges.find_range(val & PAGE_TABLE_PAGE_MASK);
-    if (newrange)
-      newrange->ref();
-  }
-  if (pterange.level < 2 && (prev_pte & 3) == 3) {
     mmio_pa_range *oldrange = mmio_pa_ranges.find_range(prev_pte & PAGE_TABLE_PAGE_MASK);
-    if (oldrange)
-      oldrange->deref();
+    if (newrange != oldrange) {
+      if (newrange)
+	newrange->ref();
+      if (oldrange)
+	oldrange->deref();
+    }
   }
   pa_range_cache->store_u64(pa, val);
+  pa_range_pa->store_u64(pa, val);
+  return;
 
   if (pterange.level < 2) {
     //print(mmio_log, "high-level page table modified! %d\n", pterange.level);
     u64 pte = val;
+    u64 off = (pa & 0x3ff8) / 8;
     if ((pte & 3) == 3) {
       u64 pt = val & PAGE_TABLE_PAGE_MASK;
       mmio_pterange pterange = this->pterange;
       pterange.level++;
+      switch(this->pterange.level) {
+      case 0:
+	pterange.off1 += off; break;
+      case 1:
+	pterange.off2 += off; break;
+      default:
+	while (true)
+	  print(mmio_log, "invalid pterange level %d\n", this->pterange.level);
+	abort();
+      }
+      pterange.va0 = offs_to_va(pterange.off0, pterange.off1, pterange.off2,
+				1);
       auto pt_range =
 	new mmio_pa_range_log
 	(new mmio_pa_range_pt(pt, pt + PAGE_SIZE, pterange));
       mmio_pa_ranges.insert_range(pt_range);
-      //print(mmio_log, "stored page table %016lx\n", (long)val);
+      print(mmio_log, "stored page table %016lx for %016lx\n", (long)val,
+	    pterange.va0);
       pa_range_pa->store_u64(pa, val);
       return;
     } else if (pte & 1) {
@@ -1116,10 +1115,10 @@ mmio_pa_range_pt::store_u64(u64 pa, u64 val)
   if (val & 1) {
     u64 pte = val;
     u64 mapped_pa = val & PAGE_TABLE_PAGE_MASK;
-    u64 mapped_va = offs_to_va2(pterange.off0,
-				pterange.off1,
-				pterange.off2 + (pa & (PAGE_SIZE - 1)) / 8,
-				1);
+    u64 mapped_va = offs_to_va(pterange.off0,
+			       pterange.off1,
+			       pterange.off2 + (pa & (PAGE_SIZE - 1)) / 8,
+			       1);
     //print(mmio_log, "request to install mapping %016lx -> %016lx (%016lx %016lx) %ld %ld %ld + %ld at level %d + 1\n",
     //mapped_va, mapped_pa, pa, pte, pterange.off0, pterange.off1, pterange.off2, (pa & (PAGE_SIZE - 1)) / 8, pterange.level);
     auto pa_range = mmio_pa_ranges.find_range(mapped_pa);
@@ -1563,7 +1562,7 @@ static std::vector<mmio_pterange> pt_ranges(u64 pt)
   p.ttbr = pt;
   p.pa0 = 0;
   p.pt0 = pt;
-  p.va0 = offs_to_va2(0, 0, 0, 1);
+  p.va0 = offs_to_va(0, 0, 0, 1);
   p.ptep = 0;
   p.pte = 0;
   p.level = 0;
@@ -1578,7 +1577,7 @@ static std::vector<mmio_pterange> pt_ranges(u64 pt)
       p.ttbr = ttbr;
       p.pa0 = 0;
       p.pt0 = level1;
-      p.va0 = offs_to_va2(off0, 0, 0, 1);
+      p.va0 = offs_to_va(off0, 0, 0, 1);
       p.ptep = pt + 8 * off0;
       p.pte = pte1;
 
@@ -1597,7 +1596,7 @@ static std::vector<mmio_pterange> pt_ranges(u64 pt)
 	    p.ttbr = ttbr;
 	    p.pa0 = 0;
 	    p.pt0 = level2;
-	    p.va0 = offs_to_va2(off0, off1, 0, 1);
+	    p.va0 = offs_to_va(off0, off1, 0, 1);
 	    p.ptep = level1 + 8 * off1;
 	    p.pte = pte2;
 	    p.level = 2;
@@ -1610,7 +1609,7 @@ static std::vector<mmio_pterange> pt_ranges(u64 pt)
 	  for (unsigned long off2 = 0; off2 < 2048; off2++) {
 	    u64 pte3 = read64(level2 + 8 * off2);
 	    u64 page = pte3 & PAGE_TABLE_PAGE_MASK;
-	    u64 va = offs_to_va2(off0, off1, off2, 1);
+	    u64 va = offs_to_va(off0, off1, off2, 1);
 	    if (pte3 & 1) {
 	      mmio_pterange p(level1);
 	      p.ttbr = ttbr;
@@ -1633,7 +1632,7 @@ static std::vector<mmio_pterange> pt_ranges(u64 pt)
 	  p.ttbr = ttbr;
 	  p.pa0 = level2;
 	  p.pt0 = 0;
-	  p.va0 = offs_to_va2(off0, off1, 0, 1);
+	  p.va0 = offs_to_va(off0, off1, 0, 1);
 	  p.ptep = level1 + 8 * off1;
 	  p.pte = pte2;
 
@@ -1670,7 +1669,14 @@ static void steal_page_table(u64 pt)
   std::multimap<u64,std::pair<u64,u64>> pt_vas;
   std::multimap<u64,mmio_pterange> pts;
   bool didsomething = true;
-  pts.insert(std::make_pair(pt,mmio_pterange(0)));
+  mmio_pterange pterange(pt);
+  pterange.ttbr = pt;
+  pterange.level = 0;
+  pterange.off0 = pterange.off1 = pterange.off2 = 0;
+  pterange.pa0 = 0;
+  pterange.va0 = offs_to_va(0, 0, 0, 1);
+  pterange.pt0 = pt;
+  pts.insert(std::make_pair(pt, pterange));
   while (didsomething) {
     didsomething = false;
     for (unsigned long off0 = 0; off0 < 2048; off0++) {
@@ -1686,9 +1692,9 @@ static void steal_page_table(u64 pt)
 	  pterange.off1 = 0;
 	  pterange.off2 = 0;
 	  pterange.pa0 = level1;
-	  pterange.va0 = offs_to_va2(off0, 0, 0, 1);
+	  pterange.va0 = offs_to_va(off0, 0, 0, 1);
 	  pterange.pt0 = 0;
-	  pts.insert(std::make_pair(level1,pterange));
+	  pts.insert(std::make_pair(level1, pterange));
 	}
       if ((pte1 & 3) == 3) {
 	for (unsigned long off1 = 0; off1 < 2048; off1++) {
@@ -1703,10 +1709,10 @@ static void steal_page_table(u64 pt)
 	      pterange.off1 = off1;
 	      pterange.off2 = 0;
 	      pterange.pa0 = level2;
-	      pterange.va0 = offs_to_va2(off0, off1, 0, 1);
+	      pterange.va0 = offs_to_va(off0, off1, 0, 1);
 	      pterange.pt0 = 0;
 	      didsomething = true;
-	      pts.insert(std::make_pair(level2,pterange));
+	      pts.insert(std::make_pair(level2, pterange));
 	    }
 	  if ((pte2 & 3) == 3) {
 	  } else if ((pte2 & 3) == 1) {
@@ -1895,7 +1901,7 @@ static void handle_mmio()
     sleep(5);
   }
   do_handle_mmio();
-  //print(mmio_log, "handled mmio! success %d\n", read64(ppage+0x3fd0));
+  print(mmio_log, "handled mmio! success %d\n", read64(ppage+0x3fd0));
 }
 
 
@@ -2230,7 +2236,8 @@ int main(int argc, char **argv)
      (new mmio_pa_range_pa(0x23b200000, 0x300000000)));
 #if 1
   mmio_pa_ranges.insert_range
-    (new mmio_pa_range_pa(0xbdf438000, 0xbe03d8000));
+    (new mmio_pa_range_log
+     (new mmio_pa_range_pa(0xbdf438000, 0xbe03d8000)));
 #endif
 
   start_mmio();
