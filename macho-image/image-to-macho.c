@@ -9,59 +9,45 @@
 
 static
 #include "../asm-snippets/mov-x0-0..h"
-;
 
 static
 #include "../asm-snippets/remap-to-physical..h"
-;
 
 static
 #include "../asm-snippets/perform-alignment-4..h"
-;
 
 static
 #include "../asm-snippets/jump-to-start-of-page..h"
-;
 
 static
 #include "../asm-snippets/bring-up-phys..h"
-;
 
 static
 #include "../asm-snippets/bring-up-phys-2..h"
-;
 
 static
 #include "../asm-snippets/enable-all-clocks..h"
-;
 
 static
 #include "../asm-snippets/x8r8g8b8..h"
-;
 
 static
 #include "../asm-snippets/reboot-physical..h"
-;
 
 static
 #include "../asm-snippets/reboot-physical-2..h"
-;
 
 static
 #include "../asm-snippets/fillrect..h"
-;
 
 static
 #include "../asm-snippets/save-boot-args..h"
-;
 
 static
 #include "../asm-snippets/restore-boot-args..h"
-;
 
 static
 #include "../asm-snippets/nop..h"
-;
 
 #define PRELUDE_SIZE 16384
 #define IMAGE_PADDING (1 << 21)
