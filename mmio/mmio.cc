@@ -464,7 +464,6 @@ static FILE *mmio_log;
 typedef unsigned __int128 u128;
 
 class mmio_pterange;
-static std::map<u64,mmio_pterange*> pte_ranges_by_pa;
 class mmio_pterange {
 public:
   u64 ttbr;
@@ -520,17 +519,11 @@ public:
     return ret;
   }
 
-  bool still_valid()
-  {
-    return pte_ranges_by_pa[pa0] == this;
-  }
-
   std::vector<mmio_pterange> sub_ranges();
 
   mmio_pterange(u64 pa)
     : pa0(pa)
   {
-    pte_ranges_by_pa[pa0] = this;
   }
 };
 
@@ -672,7 +665,7 @@ public:
 
   virtual bool still_valid()
   {
-    return true;
+    return refcount > 0;
   }
   virtual std::string describe();
   virtual u64 load_u64(u64 pa);
@@ -808,10 +801,6 @@ public:
   virtual void store_u64(u64 pa, u64 val);
   virtual u128 load(mmio_insn *insn, u64 pa);
   virtual void store(mmio_insn *insn, u64 pa, u128 val);
-  virtual bool still_valid()
-  {
-    return pterange.still_valid();
-  }
 
   mmio_pa_range_pt(u64 pa, u64 pa_end, mmio_pterange pterange)
     : mmio_pa_range(pa, pa_end),
@@ -1100,9 +1089,6 @@ mmio_pa_range_pt::store_u64(u64 pa, u64 val)
     if (oldrange)
       oldrange->deref();
   }
-  auto p = pte_ranges_by_pa[prev_pte & PAGE_TABLE_PAGE_MASK];
-  if (p && (prev_pte & PAGE_TABLE_PAGE_MASK) != (val & PAGE_TABLE_PAGE_MASK))
-    pte_ranges_by_pa[prev_pte & PAGE_TABLE_PAGE_MASK] = nullptr;
   pa_range_cache->store_u64(pa, val);
 
   if (pterange.level < 2) {
