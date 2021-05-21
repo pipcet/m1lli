@@ -1924,7 +1924,7 @@ bool sometimes()
   time_t this_time = time(NULL);
   if (this_time - last_time > 30) {
     u64 pc = read64(0x210040090);
-    u32 insn32 = read32_at_va(pc|0xffff00000000000000, base + 0x3a84000);
+    u32 insn32 = read32_at_va(pc|0xffff000000000000, base + 0x3a84000);
     for (int i = 0; i < 32; i++) {
       printf("PC %016lx insn %08x\n", pc + 4 * i, read32_at_va((pc+4*i)|0xffff000000000000, read64(0xb90003e08)));
     }
