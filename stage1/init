@@ -14,51 +14,6 @@ ls -l /boot/fdt
 # cat /sys/firmware/devicetree/base/adt/contents | /adt2fdt
 # perl /copy-fdt-props.pl
 
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-
 /bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=7 seek=72 conv=notrunc
 /bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=6 seek=73 conv=notrunc
 /bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=5 seek=74 conv=notrunc
@@ -68,36 +23,10 @@ od -tx /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
 /bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=1 seek=78 conv=notrunc
 /bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=0 seek=79 conv=notrunc
 
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg
-
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg | head -1
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg | head -1
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg | head -1
 # /bin/kexec -fix /m1n1.macho.image --dtb=/boot/fdt
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg | head -1
 # /bin/kexec -fix /m1n1.macho.image --dtb=/sys/firmware/fdt
-od -tx1 /sys/firmware/devicetree/base/reserved-memory/base@800000000/reg | head -1
 
 /bin/kexec -fix /boot/Image --dtb=/boot/fdt
 /bin/kexec -fix /Image --dtb=/boot/fdt
 /bin/kexec -fix /boot/Image --dtb=/sys/firmware/fdt
 /bin/kexec -fix /Image --dtb=/sys/firmware/fdt
-
