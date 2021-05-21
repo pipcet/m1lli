@@ -4,10 +4,12 @@ long mmiotrace(unsigned long frame)
 {
   if (*(VPAGE + (0x3e00/8)) == 0)
     return 0;
+  *(VPAGE + (0x3fa0/8)) = *(unsigned long *)(frame + 32 * 8);
+  *(VPAGE + (0x3fa8/8)) = *(unsigned long *)(frame + 33 * 8);
   unsigned long esr;
-  asm volatile("mrs %0, esr_el2" : "=r" (esr));
-  if ((esr & 0xf8000000) != 0x90000000)
-    return 0;
+  asm volatile("mrs %0, esr_el1" : "=r" (esr));
+  //if ((esr & 0xe8000000) != 0x80000000)
+  //  return 0;
   unsigned long far;
   asm volatile("mrs %0, far_el2" : "=r" (far));
   unsigned long elr;

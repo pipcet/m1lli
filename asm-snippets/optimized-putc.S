@@ -6,7 +6,7 @@
 	add	x15,x15,#1
 	cmp	x15,#8
 	b.ne	0b
-#if 0
+#if 1
 	nop
 	nop
 	nop
