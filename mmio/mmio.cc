@@ -2242,10 +2242,9 @@ int main(int argc, char **argv)
   mmio_pa_ranges.insert_range
     (new mmio_pa_range_log
      (new mmio_pa_range_pa(0x23b200000, 0x300000000)));
-#if 0
+#if 1
   mmio_pa_ranges.insert_range
-    (new mmio_pa_range_log
-     (new mmio_pa_range_pa(0xbdf438000, 0xbe03d8000)));
+    (new mmio_pa_range_pa(0xbdf438000, 0xbe03d8000));
 #endif
 
   start_mmio();
