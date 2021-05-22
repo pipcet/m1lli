@@ -1331,7 +1331,7 @@ bool mmio_va_range::handle_insn(mmio_insn *insn)
   if ((insn32 & 0xffe00c00) == 0xf8400000) {
     /* 32-bit LDUR (register, unsigned offset) */
     insn->size = 4;
-    print(mmio_log, "32-bit load %08x\n", insn32);
+    //print(mmio_log, "32-bit load %08x\n", insn32);
     u128 val = load(insn);
     write_reg(insn->frame, t, val, insn->level0);
     return true;
@@ -1340,7 +1340,7 @@ bool mmio_va_range::handle_insn(mmio_insn *insn)
       (insn32 & 0xffe00000) == 0xb9400000) {
     /* 32-bit LDR (register, unsigned offset) */
     insn->size = 4;
-    print(mmio_log, "32-bit load %08x\n", insn32);
+    //print(mmio_log, "32-bit load %08x\n", insn32);
     u128 val = load(insn);
     write_reg(insn->frame, t, val, insn->level0);
     return true;
@@ -1349,7 +1349,7 @@ bool mmio_va_range::handle_insn(mmio_insn *insn)
       (insn32 & 0xffe00000) == 0xb9000000) {
     /* 32-bit STR (register, unsigned offset) */
     insn->size = 4;
-    print(mmio_log, "32-bit store %08x\n", insn32);
+    //print(mmio_log, "32-bit store %08x\n", insn32);
     u128 val = read_reg(insn->frame, t, insn->level0);
     store(insn, val);
     return true;
@@ -1375,7 +1375,7 @@ bool mmio_va_range::handle_insn(mmio_insn *insn)
   }
   if ((insn32 & 0xffc00000) == 0xa9400000) {
     /* 128-bit LDP (register, unsigned offset) */
-    print(mmio_log, "128-bit load %08x\n", insn32);
+    //print(mmio_log, "128-bit load %08x\n", insn32);
     insn->size = 16;
     u128 val = load(insn);
     int t2 = (insn32 >> 10) & 31;
@@ -1386,7 +1386,7 @@ bool mmio_va_range::handle_insn(mmio_insn *insn)
   if ((insn32 & 0xffc00000) == 0xa9000000) {
     /* 128-bit STP (register, unsigned offset) */
     int t2 = (insn32 >> 10) & 31;
-    print(mmio_log, "128-bit store %08x\n", insn32);
+    //print(mmio_log, "128-bit store %08x\n", insn32);
     u64 val0 = read_reg(insn->frame, t, insn->level0);
     u64 val1 = read_reg(insn->frame, t2, insn->level0);
     u128 val = val0 + ((u128)val1 << 64);
