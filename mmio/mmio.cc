@@ -1141,21 +1141,25 @@ mmio_pa_range_pt::store_u64(u64 pa, u64 val)
 			       pterange.off1,
 			       pterange.off2 + (pa & (PAGE_SIZE - 1)) / 8,
 			       1);
+
+    if (mapped_va >= 0xfffffe0000000000 && mapped_va < 0xfffff0000000000) {
+    } else {
 #if 0
-    print(mmio_log, "request to install mapping %016lx -> %016lx (%016lx %016lx) %ld %ld %ld + %ld at level %d + 1\n",
-	  mapped_va, mapped_pa, pa, pte, pterange.off0, pterange.off1, pterange.off2, (pa & (PAGE_SIZE - 1)) / 8, pterange.level);
+      print(mmio_log, "request to install mapping %016lx -> %016lx (%016lx %016lx) %ld %ld %ld + %ld at level %d + 1\n",
+	    mapped_va, mapped_pa, pa, pte, pterange.off0, pterange.off1, pterange.off2, (pa & (PAGE_SIZE - 1)) / 8, pterange.level);
 #endif
-    auto pa_range = mmio_pa_ranges.find_range(mapped_pa);
-    if (pa_range) {
-      auto va_range = mmio_va_ranges.find_range(mapped_va);
-      if (pa_range->still_valid()) {
-	if (!va_range) {
-	  va_range = pa_range->virtualize(mapped_pa, mapped_va,
-					  mapped_va + PAGE_SIZE);
-	  mmio_va_ranges.insert_range(va_range);
+      auto pa_range = mmio_pa_ranges.find_range(mapped_pa);
+      if (pa_range) {
+	auto va_range = mmio_va_ranges.find_range(mapped_va);
+	if (pa_range->still_valid()) {
+	  if (!va_range) {
+	    va_range = pa_range->virtualize(mapped_pa, mapped_va,
+					    mapped_va + PAGE_SIZE);
+	    mmio_va_ranges.insert_range(va_range);
+	  }
+	  pa_range_pa->store_u64(pa, 0);
+	  return;
 	}
-	pa_range_pa->store_u64(pa, 0);
-	return;
       }
     }
   }
@@ -1393,6 +1397,14 @@ bool mmio_va_range::handle_insn(mmio_insn *insn, bool verbose)
     store(insn, val);
     return true;
   }
+#if 0
+  if (insn32 == 0xe7ffdeff) {
+    print(mmio_log, "unhandled insn %08x %016lx {%016lx / %016lx}\n", insn32,
+	  (u64)load(insn),
+	  insn->elr, va_to_baseoff(insn->elr, insn->level0));
+    return true;
+  }
+#endif
   print(mmio_log, "unhandled insn %08x {%016lx / %016lx}\n", insn32,
 	insn->elr, va_to_baseoff(insn->elr, insn->level0));
   sleep(1);
@@ -1821,10 +1833,12 @@ static void do_handle_mmio(bool verbose = false)
   u64 elr = read64(ppage + 0x3ff8);
   if (verbose)
     print(mmio_log, "esr %016lx\n", esr);
+#if 0
   if ((esr & 0xe8000000UL) != 0x80000000UL) {
     write64(ppage + 0x3fd0, success);
     return;
   }
+#endif
   u64 va_reg = read64(ppage + 0x3fb0);
   if (va_reg) {
     print(mmio_log, "interrupt event (unknown)%s\n", "");
@@ -1867,7 +1881,9 @@ static void do_handle_mmio(bool verbose = false)
   mmio_insn insn;
   insn.va = far;
   insn.elr = elr;
-  insn.level0 = read64(ppage + 0x3fe8);
+  u64 base = read64(0xac0000008);
+  u64 pt4 = base + 0x3a84000;
+  insn.level0 = read64(ppage + 0x3fa0) > 0x13e0000 ? pt4 : read64(ppage + 0x3fe8);
   insn.frame = read64(ppage + 0x3fc8);
   insn.size = 0;
 
@@ -1892,12 +1908,13 @@ static void handle_mmio()
 {
   read64(ppage + 0x3fa0), read64(ppage + 0x3fa8);
 #if 0
-  print(mmio_log, "handling mmio %016lx %016lx\n",
-  	read64(ppage + 0x3fa0), read64(ppage + 0x3fa8));
 #endif
-  do_handle_mmio(true);
-  //if (!read64(ppage+0x3fd0))
-  //  do_handle_mmio(true);
+  do_handle_mmio();
+  if (!read64(ppage+0x3fd0)) {
+    print(mmio_log, "handling mmio %016lx %016lx\n",
+	  read64(ppage + 0x3fa0), read64(ppage + 0x3fa8));
+    do_handle_mmio(true);
+  }
   asm volatile("dmb sy" : : : "memory");
   asm volatile("dsb sy");
   asm volatile("isb");
@@ -1924,6 +1941,9 @@ bool sometimes()
     }
     last_time = this_time;
 #endif
+    u64 base = read64(0xac0000008);
+    u64 pt4 = base + 0x3a84000;
+    dump_pt(pt4);
     return true;
   }
   return false;
@@ -2070,35 +2090,46 @@ int main(int argc, char **argv)
       }
     }
     unsigned long offs[] = {
-      0, /* 0x80, */
-      0x200,
-      0x400,
-      0x8000 - 0x2000, 0x8200 - 0x2000, 0x8400 - 0x2000,
-      0x9000 - 0x2000, 0x9200 - 0x2000, 0x9400 - 0x2000,
-      0x13ec000 - 0xc02000,
-      0x13ec200 - 0xc02000,
-      0x13ec400 - 0xc02000,
-      0x13ec080 - 0xc02000, 0x13ec280 - 0xc02000, 0x13ec480 - 0xc02000,
-      0x13ec100 - 0xc02000, 0x13ec300 - 0xc02000, 0x13ec500 - 0xc02000,
-      0x13ec180 - 0xc02000, 0x13ec380 - 0xc02000, 0x13ec580 - 0xc02000,
+      0xc02000,
+      0xc02200,
+      0xc02400,
+      0xc08000,
+      0xc08200,
+      0xc08400,
+      0xc09000,
+      0xc09200,
+      0xc09400,
+      0x13ec000,
+      0x13ec080,
+      0x13ec100,
+      0x13ec180,
+      0x13ec200,
+      0x13ec280,
+      0x13ec300,
+      0x13ec380,
+      0x13ec400,
+      0x13ec480,
+      0x13ec500,
+      0x13ec580,
     };
     for (int j = 0; j < ARRAYELTS(offs); j++) {
       unsigned long off = offs[j];
-      unsigned oldbr = read32(base + 0xc02000 + off);
-      if (off < 0x13ec000 - 0xc02000) {
-	for (int i = 0; i < ARRAYELTS(new_vbar_entry); i++) {
-	  write32(base + 0xc02000 + off + 4 * i, new_vbar_entry[i]);
+      unsigned oldbr = read32(base + off);
+      if (off >= 0x13ec000) {
+	for (int i = 0; i < ARRAYELTS(new_vbar_entry_special); i++) {
+	  write32(base + off + 4 * i, new_vbar_entry_special[i]);
 	}
       } else {
-	for (int i = 0; i < ARRAYELTS(new_vbar_entry_special); i++) {
-	  write32(base + 0xc02000 + off + 4 * i, new_vbar_entry_special[i]);
+	for (int i = 0; i < ARRAYELTS(new_vbar_entry); i++) {
+	  write32(base + off + 4 * i, new_vbar_entry[i]);
 	}
       }
       if ((oldbr & 0xff000000) == 0x14000000)
-	write32(base + 0xc02000 + off + 0x4, oldbr - 1);
+	write32(base + off + 0x4, oldbr - 1);
       else
-	write32(base + 0xc02000 + off + 0x4, oldbr);
+	write32(base + off + 0x4, oldbr);
     }
+    write32(base + 0x13ec7fc, 0x14000000);
     write64(ppage + 0x3f00, 1);
     //system("pt unmap-pa 0x23d2b0000 0x23d2b4000 0");
     asm volatile("isb");
@@ -2158,7 +2189,7 @@ int main(int argc, char **argv)
     sleep(5);
     for (int j = 0; j < ARRAYELTS(offs); j++) {
       unsigned long off = offs[j];
-      write32(base + 0xc02000 + off + 0x78, off + 0xc02000);
+      write32(base + off + 0x78, off);
     }
 
     printf("done\n");
