@@ -1829,16 +1829,6 @@ static void do_handle_mmio()
     write64(ppage + 0x3ff0, 0);
     return;
   }
-#if 0
-  if (esr == 0x96000047) {
-    write64(ppage + 0x3fd0, success);
-    asm volatile("dmb sy" : : : "memory");
-    asm volatile("dsb sy");
-    asm volatile("isb");
-    write64(ppage + 0x3ff0, 0);
-    return;
-  }
-#endif
   u64 va_reg = read64(ppage + 0x3fb0);
   if (va_reg) {
     print(mmio_log, "interrupt event (unknown)%s\n", "");
@@ -1882,25 +1872,6 @@ static void do_handle_mmio()
 	}
       }
     }
-#if 0
-    dump_page_table_for_va(read64(ppage + 0x3fe8), far);
-    dump_page_table_for_va(base + 0x3a84000, far);
-    dump_page_table_for_va(base + 0x3a80000, far);
-    dump_page_table_for_va(read64(ppage + 0x3fe8), far-4096);
-    dump_page_table_for_va(base + 0x3a84000, far-4096);
-    dump_page_table_for_va(base + 0x3a80000, far-4096);
-    dump_page_table_for_va(read64(ppage + 0x3fe8), far+4096);
-    dump_page_table_for_va(base + 0x3a84000, far+4096);
-    dump_page_table_for_va(base + 0x3a80000, far+4096);
-    if (esr == 0x96000047) {
-      write64(ppage + 0x3fd0, success);
-      asm volatile("dmb sy" : : : "memory");
-      asm volatile("dsb sy");
-      asm volatile("isb");
-      write64(ppage + 0x3ff0, 0);
-      return;
-    }
-#endif
     write64(ppage + 0x3fd0, success);
     asm volatile("dmb sy" : : : "memory");
     asm volatile("dsb sy");
@@ -1951,30 +1922,6 @@ bool sometimes()
   static time_t last_time;
   time_t this_time = time(NULL);
   if (this_time - last_time > 30) {
-#if 0
-    {
-      u64 pt4 = base + 0x3a84000;
-      printf("page table 4\n");
-      dump_pt_compressed(pt4);
-    }
-    sleep(5);
-    u64 pc = read64(0x210040090);
-    u32 insn32 = read32_at_va(pc|0xffff000000000000, base + 0x3a84000);
-    //verbose_translation(pc|0xffff000000000000, base + 0x3a84000);
-    //verbose_translation(0xfffffff800000000, base + 0x3a84000);
-  {
-    u64 pt4 = base + 0x3a84000;
-    install_page(0xfffffff000004000, 0x23b100000, PAGE_RW, pt4);
-    install_page(0xfffffff000000000, 0xb90000000, PAGE_RW, pt4);
-    install_page(0xfffffff100000000, 0x23b100000, PAGE_RW, pt4);
-    install_page(0xfffffff100008000, 0x23d2b0000, PAGE_RW, pt4);
-    install_page(0xfffffff800000000, 0xb90000000, 1, pt4);
-    install_page(0xfffffff800004000, 0xb90004000, 4, pt4);
-  }
-  //verbose_translation(0xfffffff800000000, base + 0x3a84000);
-    //mmio_va_ranges.dump();
-    //sleep(1);
-#endif
     last_time = this_time;
     return true;
   }
@@ -1987,11 +1934,6 @@ void mainloop()
     handle_mmio();
   }
   if (sometimes()) {
-#if 0
-    for (unsigned i = 0; i < 32; i++) {
-      fprintf(stderr, "%02x %08x\n", i, read32(base + 0x13ec200 + 4 * i));
-    }
-#endif
     for (unsigned long off = 0x800000000; off < 0x980000000; off += PAGE_SIZE){
       if (read64(off) == 0xd547fdfeceade631) {
 	fprintf(stderr, "read %016lx %016lx %016lx\n",
@@ -2054,14 +1996,6 @@ int main(int argc, char **argv)
     //write32(0x210030fb0, 0xc5acce55);
     write64(0xb90003e08, 0);
     write64(0xb90003e00, 1);
-#if 0
-    while (!read64(0xb90003e08) ||
-	   (read64(0xb90003e08) & 255)) {
-      if (read64(base + 0x3ad66f0) & 0x800000000) {
-	write64(0xb90003e08, read64(base + 0x3ad66f0));
-      }
-    }
-#endif
     write64(0xb90003e08, base + 0x3adc000);
     //write32(0x210030fb0, 0xc5acce55);
     write64(0xb90003e10, 0xb90010000);
@@ -2073,13 +2007,6 @@ int main(int argc, char **argv)
     install_page(0xfffffff100008000, 0x23d2b0000, PAGE_RW, read64(0xb90003e08));
     install_page(0xfffffff800000000, 0xb90000000, 1, read64(0xb90003e08));
     install_page(0xfffffff800004000, 0xb90004000, 1, read64(0xb90003e08));
-#if 0
-    install_page(0xfffffff000000000, 0xb90000000, 0, base + (0x806b98000 - 0x8030bc000));
-    install_page(0xfffffff800000000, 0xb90000000, 1, base + (0x806b98000 - 0x8030bc000));
-    install_page(0xfffffff800004000, 0xb90004000, 1, base + (0x806b98000 - 0x8030bc000));
-    install_page(0x0000000900000000, 0xb90000000, 1, base + (0x806b94000 - 0x8030bc000));
-    install_page(0x0000000900004000, 0xb90004000, 1, base + (0x806b94000 - 0x8030bc000));
-#endif
     printf("page table 1\n");
     dump_pt_compressed(read64(0xb90003e08));
     printf("page table 2\n");
@@ -2133,39 +2060,6 @@ int main(int argc, char **argv)
 	i++;
       }
     }
-#if 0
-    unsigned long offs2[] = {
-      0x8000 - 0x2000, 0x8200 - 0x2000, 0x8400 - 0x2000,
-      0x9000 - 0x2000, 0x9200 - 0x2000, 0x9400 - 0x2000,
-      0x13ec000 - 0xc02000, 0x13ec200 - 0xc02000, 0x13ec400 - 0xc02000,
-      0x13ec080 - 0xc02000, 0x13ec280 - 0xc02000, 0x13ec480 - 0xc02000,
-      0x13ec100 - 0xc02000, 0x13ec300 - 0xc02000, 0x13ec500 - 0xc02000,
-      0x13ec180 - 0xc02000, 0x13ec380 - 0xc02000, 0x13ec580 - 0xc02000,
-    };
-    for (int j = 0; j < ARRAYELTS(offs2); j++) {
-      unsigned long off = offs2[j];
-#if 0
-      for (int i = 2; i < ARRAYELTS(expose_ttbr_to_stack); i++) {
-	write32(base + 0xc02000 + off + 4 * i, expose_ttbr_to_stack[i]);
-      }
-      unsigned oldbr = read32(base + 0xc02000 + off);
-      if ((oldbr & 0xff000000) == 0x14000000)
-	write32(base + 0xc02000 + off + 0x4, oldbr - 1);
-      else
-	write32(base + 0xc02000 + off + 0x4, oldbr);
-#else
-      for (int i = 0; i < ARRAYELTS(expose_ttbr_to_stack); i++) {
-	write32(base + 0xc02000 + off + 4 * i, expose_ttbr_to_stack[i]);
-      }
-#endif
-      write32(base + 0xc02000 + off + 0x38, off);
-
-      write32(base + 0xc02000 + off, expose_ttbr_to_stack[0]);
-    }
-    write32(base + 0xc08ffc, 0x14000000);
-    write32(base + 0xc09ffc, 0x14000000);
-    write32(base + 0x13ecffc, 0x14000000);
-#endif
     unsigned long offs[] = {
       0, /* 0x80, */
       0x200,
@@ -2201,12 +2095,6 @@ int main(int argc, char **argv)
       //write32(base + 0xc02000 + off, 0x1400001f);
       //write32(base + 0xc02000 + off + 31 * 4, 0x14000000);
       //write32(base + 0xc02000 + off, code3[0]);
-    }
-#endif
-#if 0
-    for (int i = 0; i < ARRAYELTS(new_vbar_entry_for_mrs); i++) {
-      write32(base + 0xc09200 + i, new_vbar_entry_for_mrs[i]);
-      write32(base + 0xc08200 + i, new_vbar_entry_for_mrs[i]);
     }
 #endif
     write64(ppage + 0x3f00, 1);
