@@ -1099,8 +1099,10 @@ mmio_pa_range_pt::store_u64(u64 pa, u64 val)
       pterange.level++;
       switch(this->pterange.level) {
       case 0:
-	pterange.off1 += off; break;
+	pterange.off0 += off; break;
       case 1:
+	pterange.off1 += off; break;
+      case 2:
 	pterange.off2 += off; break;
       default:
 	while (true)
