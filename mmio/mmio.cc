@@ -1883,7 +1883,7 @@ static void do_handle_mmio(bool verbose = false)
   insn.elr = elr;
   u64 base = read64(0xac0000008);
   u64 pt4 = base + 0x3a84000;
-  insn.level0 = read64(ppage + 0x3fa0) > 0x13e0000 ? pt4 : read64(ppage + 0x3fe8);
+  insn.level0 = read64(ppage + 0x3fe8);
   insn.frame = read64(ppage + 0x3fc8);
   insn.size = 0;
 
