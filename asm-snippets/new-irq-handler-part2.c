@@ -4,6 +4,7 @@ long mmiotrace(unsigned long frame)
 {
   if (*(VPAGE + (0x3e00/8)) == 0)
     return 0;
+  unsigned long off = *(unsigned long *)(frame + 33 * 8);
   *(VPAGE + (0x3fa0/8)) = *(unsigned long *)(frame + 32 * 8);
   *(VPAGE + (0x3fa8/8)) = *(unsigned long *)(frame + 33 * 8);
   unsigned long esr;
@@ -14,15 +15,20 @@ long mmiotrace(unsigned long frame)
   asm volatile("mrs %0, far_el2" : "=r" (far));
   unsigned long elr;
   asm volatile("mrs %0, elr_el2" : "=r" (elr));
-  unsigned long ttbr0_el0;
-  asm volatile("mrs %0, ttbr0_el1" : "=r" (ttbr0_el0));
-  unsigned long ttbr1_el0;
-  asm volatile("mrs %0, ttbr1_el1" : "=r" (ttbr1_el0));
+  unsigned long ttbr0;
+  unsigned long ttbr1;
+  if (off >= 0x13ec000) {
+    asm volatile("mrs %0, ttbr0_el2" : "=r" (ttbr0));
+    asm volatile("mrs %0, ttbr1_el2" : "=r" (ttbr1));
+  } else {
+    asm volatile("mrs %0, ttbr0_el1" : "=r" (ttbr0));
+    asm volatile("mrs %0, ttbr1_el1" : "=r" (ttbr1));
+  }
 
   *(VPAGE + (0x3fc8/8)) = frame;
   *(VPAGE + (0x3fd8/8)) = esr;
-  *(VPAGE + (0x3fe0/8)) = ttbr0_el0;
-  *(VPAGE + (0x3fe8/8)) = ttbr1_el0;
+  *(VPAGE + (0x3fe0/8)) = ttbr0;
+  *(VPAGE + (0x3fe8/8)) = ttbr1;
  again:
   *(VPAGE + (0x3ff8/8)) = elr;
   asm volatile("dmb sy" : : : "memory");
