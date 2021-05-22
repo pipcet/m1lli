@@ -1929,6 +1929,9 @@ bool sometimes()
 
 void mainloop()
 {
+  asm volatile("dmb sy" : : : "memory");
+  asm volatile("dsb sy");
+  asm volatile("isb");
   while (read64(ppage + 0x3ff0) != 0) {
     handle_mmio();
   }

@@ -32,7 +32,11 @@ long mmiotrace(unsigned long frame)
   asm volatile("dmb sy" : : : "memory");
   asm volatile("dsb sy");
   asm volatile("isb");
-  while (*(VPAGE + (0x3ff0/8)));
+  while (*(VPAGE + (0x3ff0/8))) {
+    asm volatile("dmb sy" : : : "memory");
+    asm volatile("dsb sy");
+    asm volatile("isb");
+  }
   asm volatile("dmb sy" : : : "memory");
   asm volatile("dsb sy");
   asm volatile("isb");
@@ -71,9 +75,7 @@ long mmiotrace(unsigned long frame)
 #endif
 
   long ret = (*(VPAGE + (0x3fd0/8))) != 0;
-  if (ret) {
-    asm volatile("tlbi alle1");
-    asm volatile("tlbi alle2");
-  }
+  asm volatile("tlbi alle1");
+  asm volatile("tlbi alle2");
   return ret;
 }
