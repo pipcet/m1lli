@@ -1992,7 +1992,6 @@ int main(int argc, char **argv)
     for (int i = 0; i < 16; i++)
       saved_code[1][i] = read32(base + 0xc0d8a0 + i * 4);
     //write32(base + 0x363ea50, 0xd503201f);
-#if 1
     //for (int i = 0; i < ARRAYELTS(wait_for_confirmation); i++)
     //  write32(base + 0xd57378 + i * 4, wait_for_confirmation[i]);
     //for (int i = 0; i < ARRAYELTS(infloop); i++)
@@ -2099,14 +2098,7 @@ int main(int argc, char **argv)
 	write32(base + 0xc02000 + off + 0x4, oldbr - 1);
       else
 	write32(base + 0xc02000 + off + 0x4, oldbr);
-      print(mmio_log, "wrote branch %08x\n", read32(base + 0xc02000 + off + 0x4));
-      //write32(base + 0xc02000 + off + 0x38, off);
-
-      //write32(base + 0xc02000 + off, 0x1400001f);
-      //write32(base + 0xc02000 + off + 31 * 4, 0x14000000);
-      //write32(base + 0xc02000 + off, code3[0]);
     }
-#endif
     write64(ppage + 0x3f00, 1);
     //system("pt unmap-pa 0x23d2b0000 0x23d2b4000 0");
     asm volatile("isb");
@@ -2182,11 +2174,9 @@ int main(int argc, char **argv)
   mmio_pa_ranges.insert_range
     (new mmio_pa_range_log
      (new mmio_pa_range_pa(0x23b200000, 0x300000000)));
-#if 1
   mmio_pa_ranges.insert_range
-    (new mmio_pa_range_log
+    (/* new mmio_pa_range_log */
      (new mmio_pa_range_pa(0xbdf438000, 0xbe03d8000)));
-#endif
 
   start_mmio();
 
