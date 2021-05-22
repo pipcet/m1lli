@@ -1890,7 +1890,8 @@ static void do_handle_mmio(bool verbose = false)
 
 static void handle_mmio()
 {
-#if 1
+  read64(ppage + 0x3fa0), read64(ppage + 0x3fa8);
+#if 0
   print(mmio_log, "handling mmio %016lx %016lx\n",
   	read64(ppage + 0x3fa0), read64(ppage + 0x3fa8));
 #endif
@@ -1904,7 +1905,8 @@ static void handle_mmio()
   asm volatile("dmb sy" : : : "memory");
   asm volatile("dsb sy");
   asm volatile("isb");
-#if 1
+  read64(ppage + 0x3fd0);
+#if 0
   print(mmio_log, "handled mmio! success %d\n", read64(ppage+0x3fd0));
 #endif
 }
@@ -1929,11 +1931,17 @@ bool sometimes()
 
 void mainloop()
 {
-  asm volatile("dmb sy" : : : "memory");
-  asm volatile("dsb sy");
-  asm volatile("isb");
-  while (read64(ppage + 0x3ff0) != 0) {
-    handle_mmio();
+  unsigned x = 0;
+  while (--x) {
+    asm volatile("dmb sy" : : : "memory");
+    asm volatile("dsb sy");
+    asm volatile("isb");
+    while (read64(ppage + 0x3ff0) != 0) {
+      handle_mmio();
+      asm volatile("dmb sy" : : : "memory");
+      asm volatile("dsb sy");
+      asm volatile("isb");
+    }
   }
   if (sometimes()) {
     for (unsigned long off = 0x800000000; off < 0x980000000; off += PAGE_SIZE){
