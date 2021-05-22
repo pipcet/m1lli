@@ -40,6 +40,17 @@
 #define MASK_T (0x1f)
 #define MASK_N (0x1f << 5)
 
+typedef unsigned u32;
+typedef unsigned long u64;
+
+class va_for_pa {
+public:
+  u64 pt;
+  u64 va;
+};
+
+std::multimap<u64,va_for_pa> pa_to_va;
+
 struct commpage {
   unsigned long code[0x3000/8];
   unsigned long mmio_master; /* 0x3e00 */
@@ -61,9 +72,6 @@ struct commpage {
 };
 
 #define ARRAYELTS(x) ((sizeof(x)/sizeof((x)[0])))
-
-typedef unsigned u32;
-typedef unsigned long u64;
 
 static struct {
   void *mapped;
