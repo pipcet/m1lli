@@ -875,7 +875,7 @@ public:
     print(mmio_log, "VA %016lx-%016lx %s\n", va, va_end, get_name().c_str());
   }
 
-  bool handle_insn(mmio_insn *insn);
+  bool handle_insn(mmio_insn *insn, bool verbose = false);
 };
 
 class mmio_pa_table
@@ -1092,9 +1092,15 @@ mmio_pa_range_pt::store_u64(u64 pa, u64 val)
   if (pterange.level < 2) {
     //print(mmio_log, "high-level page table modified! %d\n", pterange.level);
     u64 pte = val;
+    while (prev_pte && pte && (prev_pte != pte))
+      print(mmio_log, "replacing live pte %016lx with %016lx\n", prev_pte, pte);
     u64 off = (pa & 0x3ff8) / 8;
     if ((pte & 3) == 3) {
       u64 pt = val & PAGE_TABLE_PAGE_MASK;
+      if (pt >= 0xb00000000) {
+	pa_range_pa->store_u64(pa, val);
+	return;
+      }
       mmio_pterange pterange = this->pterange;
       pterange.level++;
       switch(this->pterange.level) {
@@ -1115,10 +1121,10 @@ mmio_pa_range_pt::store_u64(u64 pa, u64 val)
 	new mmio_pa_range_log
 	(new mmio_pa_range_pt(pt, pt + PAGE_SIZE, pterange));
       mmio_pa_ranges.insert_range(pt_range);
-      print(mmio_log, "stored page table %016lx for %016lx\n", (long)val,
-	    pterange.va0);
+      if (0)
+	print(mmio_log, "stored page table %016lx for %016lx\n", (long)val,
+	      pterange.va0);
       pa_range_pa->store_u64(pa, val);
-      return;
     } else if (pte & 1) {
       print(mmio_log, "unhandled large page at %016lx in %s\n", pa,
 	    describe().c_str());
@@ -1126,6 +1132,7 @@ mmio_pa_range_pt::store_u64(u64 pa, u64 val)
     } else {
       pa_range_pa->store_u64(pa, val);
     }
+    return;
   }
   if (val & 1) {
     u64 pte = val;
@@ -1134,33 +1141,25 @@ mmio_pa_range_pt::store_u64(u64 pa, u64 val)
 			       pterange.off1,
 			       pterange.off2 + (pa & (PAGE_SIZE - 1)) / 8,
 			       1);
-    //print(mmio_log, "request to install mapping %016lx -> %016lx (%016lx %016lx) %ld %ld %ld + %ld at level %d + 1\n",
-    //mapped_va, mapped_pa, pa, pte, pterange.off0, pterange.off1, pterange.off2, (pa & (PAGE_SIZE - 1)) / 8, pterange.level);
+#if 0
+    print(mmio_log, "request to install mapping %016lx -> %016lx (%016lx %016lx) %ld %ld %ld + %ld at level %d + 1\n",
+	  mapped_va, mapped_pa, pa, pte, pterange.off0, pterange.off1, pterange.off2, (pa & (PAGE_SIZE - 1)) / 8, pterange.level);
+#endif
     auto pa_range = mmio_pa_ranges.find_range(mapped_pa);
     if (pa_range) {
-      if (mmio_va_ranges.find_range(mapped_va)) {
-	//print(mmio_log, "already exists at %016lx: %016lx\n",
-	//      mmio_va_ranges.find_range(mapped_va)->pa_range->pa,
-	//      read64(pa));
-	//write64(pa, 0);
-	pa_range_pa->store_u64(pa, 0);
-      } else {
-	auto va_range = pa_range->virtualize(mapped_pa, mapped_va,
-					     mapped_va + PAGE_SIZE);
-	mmio_va_ranges.insert_range(va_range);
-	if (pa_range->still_valid()) {
-	  pa_range_pa->store_u64(pa, 0);
-	} else {
-	  print(mmio_log, "conflicting range %s, storing anyway\n", pa_range->describe().c_str());
-	  pa_range_pa->store_u64(pa, 0);
+      auto va_range = mmio_va_ranges.find_range(mapped_va);
+      if (pa_range->still_valid()) {
+	if (!va_range) {
+	  va_range = pa_range->virtualize(mapped_pa, mapped_va,
+					  mapped_va + PAGE_SIZE);
+	  mmio_va_ranges.insert_range(va_range);
 	}
+	pa_range_pa->store_u64(pa, 0);
+	return;
       }
-    } else
-      pa_range_pa->store_u64(pa, val);
-  } else {
-    //print(mmio_log, "storing non-mapping %016lx\n", (long)val);
-    pa_range_pa->store_u64(pa, val);
+    }
   }
+  pa_range_pa->store_u64(pa, val);
 }
 
 void
@@ -1275,11 +1274,12 @@ class mmio_va_range_ignore
   virtual bool handle_insn(mmio_insn *insn);
 };
 
-bool mmio_va_range::handle_insn(mmio_insn *insn)
+bool mmio_va_range::handle_insn(mmio_insn *insn, bool verbose)
 {
   u32 insn32 = insn->get_insn();
   int t = (insn32 & 31);
-  print(mmio_log, "handling %08x\n", insn32);
+  if (verbose)
+    print(mmio_log, "handling %08x\n", insn32);
   if ((insn32 | MASK_T | MASK_N) == (0xb80047ff | MASK_T | MASK_N)) {
     int n = (insn32 >> 5) & 31;
     write_reg(insn->frame, n, read_reg(insn->frame, n, insn->level0) + 4, insn->level0);
@@ -1764,7 +1764,7 @@ static void steal_page_table(u64 pt)
   }
   unsigned long unmapped = 0;
   for (auto pte : ranges) {
-    if (pts.count(pte.pa0)) {
+    if (pte.pa0 < 0xb00000000 && pts.count(pte.pa0)) {
       auto pa_range = mmio_pa_ranges.find_range(pte.pa0);
       if (!pa_range)
 	print(mmio_log, "could not find pa range %016lx\n", pte.pa0);
@@ -1775,14 +1775,11 @@ static void steal_page_table(u64 pt)
 	size <<= 11;
       auto va_range = pa_range->virtualize(pte.pa0, pte.va0, pte.va0 + size);
       mmio_va_ranges.insert_range(va_range);
-      //print(mmio_log, "va_range %016lx/%016lx\n", va_range->va, pte.va0);
-      //write64(pte.ptep, read64(pte.ptep) & ~0x0060000000000000L);
       write64(pte.ptep, 0);
       unmapped++;
     }
   }
   print(mmio_log, "found %ld page table pages, unmapped %ld, now have %ld mappings\n", pts.size(), unmapped, mmio_pa_ranges.size());
-  sleep(3);
 }
 
 static void dump_page_table(u64 pt0, int high = 1)
@@ -1810,51 +1807,30 @@ static void dump_page_table_for_va(u64 pt0, u64 va, int high = 1)
 }
 
 static unsigned long base;
-static void do_handle_mmio()
+static void do_handle_mmio(bool verbose = false)
 {
-  {
-    u64 pt4 = base + 0x3a84000;
-    install_page(0xfffffff000004000, 0x23b100000, PAGE_RW, pt4);
-    install_page(0xfffffff000000000, 0xb90000000, PAGE_RW, pt4);
-    install_page(0xfffffff100000000, 0x23b100000, PAGE_RW, pt4);
-    install_page(0xfffffff100008000, 0x23d2b0000, PAGE_RW, pt4);
-    install_page(0xfffffff800000000, 0xb90000000, 1, pt4);
-    install_page(0xfffffff800004000, 0xb90004000, 4, pt4);
-  }
-  //dump_page_table(base + 0x3a84000);
-  //dump_page_table(base + 0x3a80000);
   if (read64(ppage + 0x3f08) != 0x141ef) {
+    u64 base = read64(0xac0000008);
+    u64 pt4 = base + 0x3a84000;
     steal_page_table(read64(ppage + 0x3fe8));
+    //steal_page_table(pt4);
     write64(ppage + 0x3f08, 0x141ef);
   }
   u64 success = 0;
   u64 esr = read64(ppage + 0x3fd8);
   u64 elr = read64(ppage + 0x3ff8);
-  //print(mmio_log, "esr %016lx\n", esr);
+  if (verbose)
+    print(mmio_log, "esr %016lx\n", esr);
   if ((esr & 0xe8000000UL) != 0x80000000UL) {
     write64(ppage + 0x3fd0, success);
-    asm volatile("dmb sy" : : : "memory");
-    asm volatile("dsb sy");
-    asm volatile("isb");
-    write64(ppage + 0x3ff0, 0);
     return;
   }
   u64 va_reg = read64(ppage + 0x3fb0);
   if (va_reg) {
     print(mmio_log, "interrupt event (unknown)%s\n", "");
-    asm volatile("dmb sy" ::: "memory");
-    asm volatile("dsb sy");
-    asm volatile("isb");
-    asm volatile("dmb sy" ::: "memory");
-    asm volatile("dsb sy");
-    asm volatile("isb");
     //while (read64(ppage + 0x3fb0));
-    asm volatile("dmb sy" ::: "memory");
-    asm volatile("dsb sy");
-    asm volatile("isb");
     u64 event = read64(ppage + 0x3fb8);
     write64(ppage + 0x3fb0, 0);
-    write64(ppage + 0x3ff0, 0);
     print(mmio_log, "interrupt event %08lx\n", event);
     //write64_to_va(va, event, read64(ppage + 0x3fe8));
     return;
@@ -1866,6 +1842,7 @@ static void do_handle_mmio()
     u64 frame = read64(ppage + 0x3fc8);
     print(mmio_log, "unknown far %016lx esr %016lx elr %016lx frame %016lx\n", far, esr,
 	  elr, frame);
+#if 0
     for (int i = 0; i < 32; i++)
       print(mmio_log, "reg%02d: %016lx\n",
 	    i, read64_at_va(frame + 8 * i, read64(ppage + 0x3fe8)));
@@ -1882,11 +1859,8 @@ static void do_handle_mmio()
 	}
       }
     }
+#endif
     write64(ppage + 0x3fd0, success);
-    asm volatile("dmb sy" : : : "memory");
-    asm volatile("dsb sy");
-    asm volatile("isb");
-    write64(ppage + 0x3ff0, 0);
     return;
   }
 
@@ -1903,7 +1877,7 @@ static void do_handle_mmio()
     range->force_remap();
     success = false;
   } else {
-    success = range->handle_insn(&insn);
+    success = range->handle_insn(&insn, verbose);
     if (success) {
       write64(ppage + 0x3ff8, elr + 4);
     }
@@ -1911,19 +1885,28 @@ static void do_handle_mmio()
 
   //print(mmio_log, "success: %d\n", success);
   write64(ppage + 0x3fd0, success);
-  asm volatile("dmb sy" : : : "memory");
-  asm volatile("dsb sy");
-  asm volatile("isb");
-  write64(ppage + 0x3ff0, 0);
   return;
 }
 
 static void handle_mmio()
 {
+#if 1
   print(mmio_log, "handling mmio %016lx %016lx\n",
   	read64(ppage + 0x3fa0), read64(ppage + 0x3fa8));
-  do_handle_mmio();
+#endif
+  do_handle_mmio(true);
+  //if (!read64(ppage+0x3fd0))
+  //  do_handle_mmio(true);
+  asm volatile("dmb sy" : : : "memory");
+  asm volatile("dsb sy");
+  asm volatile("isb");
+  write64(ppage + 0x3ff0, 0);
+  asm volatile("dmb sy" : : : "memory");
+  asm volatile("dsb sy");
+  asm volatile("isb");
+#if 1
   print(mmio_log, "handled mmio! success %d\n", read64(ppage+0x3fd0));
+#endif
 }
 
 
@@ -1932,7 +1915,13 @@ bool sometimes()
   static time_t last_time;
   time_t this_time = time(NULL);
   if (this_time - last_time > 30) {
+#if 0
+    u64 pc = read64(0x210040090);
+    for (int i = 0; i < 32; i++) {
+      printf("PC %016lx insn %08x\n", pc + 4 * i, read32_at_va((pc+4*i)|0xffff000000000000, read64(0xb90003e08)));
+    }
     last_time = this_time;
+#endif
     return true;
   }
   return false;
@@ -1940,7 +1929,7 @@ bool sometimes()
 
 void mainloop()
 {
-  if (read64(ppage + 0x3ff0) != 0) {
+  while (read64(ppage + 0x3ff0) != 0) {
     handle_mmio();
   }
   if (sometimes()) {
@@ -2158,7 +2147,7 @@ int main(int argc, char **argv)
     sleep(5);
     for (int j = 0; j < ARRAYELTS(offs); j++) {
       unsigned long off = offs[j];
-      write32(base + 0xc02000 + off + 0x38, off + 0xc02000);
+      write32(base + 0xc02000 + off + 0x78, off + 0xc02000);
     }
 
     printf("done\n");
