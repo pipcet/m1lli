@@ -177,9 +177,6 @@ unsigned long install_page(unsigned long va, unsigned long pa, int typeidx,
     write64(level0 + off0 * 8, alloc_page() | 3 /* | 0x1800000000000000 */);
     goto again;
   }
-  fprintf(stderr, "using %016lx at %016lx\n",
-	  read64(level0 + off0 * 8),
-	  level0 + off0 * 8);
   unsigned long level1 = read64(level0 + off0 * 8) & 0xfffffff000;
   if (!(read64(level1 + off1 * 8) & 1)) {
     write64(level1 + off1 * 8, alloc_page() | 3);
@@ -270,7 +267,7 @@ unsigned read32_at_va(unsigned long va, unsigned long level0)
   unsigned long off2 = (va >> (14)) & 2047;
 
   if (!(read64(level0 + off0 * 8) & 1)) {
-    fprintf(stderr, "no level0!\n");
+    //fprintf(stderr, "no level0!\n");
     return 0;
   } else {
     //fprintf(stderr, "level0 %016lx!\n", read64(level0 + off0 * 8));
@@ -388,26 +385,36 @@ void iterate_pt(unsigned long level0, void (*f)(unsigned long pte, unsigned long
   }
 }
 
+static unsigned long seen_tags[32] = { 0, };
+static unsigned long seen_counts[32] = { 0, };
 static void f2(unsigned long pte, unsigned long va, int level, void *cookie)
 {
-  static unsigned long seen_tags[16] = { 0, };
   unsigned long ptepa = pte & 0xfffffff000;
   unsigned long tags = pte &~ ptepa;
   int i;
-  for (i = 0; i < 16; i++) {
-    if (tags == seen_tags[i])
+  for (i = 0; i < 32; i++) {
+    if (tags == seen_tags[i]) {
+      seen_counts[i]++;
       return;
+    }
     if (!seen_tags[i])
       break;
   }
-  if (i < 16)
+  if (i < 32) {
     seen_tags[i] = tags;
+    seen_counts[i]++;
+  }
   printf("%016llx %016llx %d\n", va, pte, level);
 }
 
 void dump_pt_compressed(unsigned long level0)
 {
+  memset(seen_tags, 0, sizeof seen_tags);
+  memset(seen_counts, 0, sizeof seen_counts);
   iterate_pt(level0, f2, NULL);
+  for (int i = 0; i < 16; i++) {
+    printf("%016lx: %ld\n", seen_tags[i], seen_counts[i]);
+  }
 }
 
 static void f(unsigned long pte, unsigned long va, int level, void *cookie)
@@ -1073,8 +1080,6 @@ mmio_pa_range_pt::store_u64(u64 pa, u64 val)
     }
   }
   pa_range_cache->store_u64(pa, val);
-  pa_range_pa->store_u64(pa, val);
-  return;
 
   if (pterange.level < 2) {
     //print(mmio_log, "high-level page table modified! %d\n", pterange.level);
@@ -1128,16 +1133,16 @@ mmio_pa_range_pt::store_u64(u64 pa, u64 val)
 	//      mmio_va_ranges.find_range(mapped_va)->pa_range->pa,
 	//      read64(pa));
 	//write64(pa, 0);
-	pa_range_pa->store_u64(pa, val);
+	pa_range_pa->store_u64(pa, 0);
       } else {
 	auto va_range = pa_range->virtualize(mapped_pa, mapped_va,
 					     mapped_va + PAGE_SIZE);
 	mmio_va_ranges.insert_range(va_range);
 	if (pa_range->still_valid()) {
-	  pa_range_pa->store_u64(pa, val);
+	  pa_range_pa->store_u64(pa, 0);
 	} else {
 	  print(mmio_log, "conflicting range %s, storing anyway\n", pa_range->describe().c_str());
-	  pa_range_pa->store_u64(pa, val);
+	  pa_range_pa->store_u64(pa, 0);
 	}
       }
     } else
@@ -1762,7 +1767,7 @@ static void steal_page_table(u64 pt)
       mmio_va_ranges.insert_range(va_range);
       //print(mmio_log, "va_range %016lx/%016lx\n", va_range->va, pte.va0);
       //write64(pte.ptep, read64(pte.ptep) & ~0x0060000000000000L);
-      //write64(pte.ptep, 0);
+      write64(pte.ptep, 0);
       unmapped++;
     }
   }
@@ -1773,11 +1778,24 @@ static void steal_page_table(u64 pt)
 static void dump_page_table(u64 pt0, int high = 1)
 {
   for (auto p : pt_ranges(pt0)) {
-    fprintf(stderr, "%016lx %016lx %016lx %016lx %d\n",
-	    pt0, p.pa0, p.pt0, p.va0, p.level);
+    fprintf(stderr, "%016lx %016lx %016lx %016lx %016lx %016lx %d\n",
+	    p.ttbr, pt0, p.pte, p.pa0, p.pt0, p.va0, p.level);
     static int count;
-    if (count++ % 50 == 0)
-      sleep(1);
+    if (count++ % 32 == 0)
+      sleep(3);
+  }
+}
+
+static void dump_page_table_for_va(u64 pt0, u64 va, int high = 1)
+{
+  for (auto p : pt_ranges(pt0)) {
+    if (p.va0 <= (va + (1 << (14 + 11))) && va - ((1L << (14+11)) - 1) < p.va0 + p.size()) {
+      fprintf(stderr, "%016lx %016lx %016lx %016lx %016lx %016lx %d\n",
+	      p.ttbr, pt0, p.pte, p.pa0, p.pt0, p.va0, p.level);
+      static int count;
+      if (count++ % 32 == 0)
+	sleep(3);
+    }
   }
 }
 
@@ -1845,18 +1863,44 @@ static void do_handle_mmio()
   mmio_va_range *range = mmio_va_ranges.find_range(far);
 
   if (!range) {
-    print(mmio_log, "unknown far %016lx\n", far);
+    u64 frame = read64(ppage + 0x3fc8);
+    print(mmio_log, "unknown far %016lx esr %016lx elr %016lx frame %016lx\n", far, esr,
+	  elr, frame);
+    for (int i = 0; i < 32; i++)
+      print(mmio_log, "reg%02d: %016lx\n",
+	    i, read64_at_va(frame + 8 * i, read64(ppage + 0x3fe8)));
     //steal_page_table(read64(ppage + 0x3fe8));
     for (auto pterange : pt_ranges(read64(ppage + 0x3fe8))) {
       if (pterange.va0 == (far & ~(PAGE_SIZE - 1))) {
 	print(mmio_log, "but we know about it!\n%s", "");
+	success = (esr != 0x9600004f);
       }
       for (auto page : pterange.pages()) {
 	if (page == (far & ~(PAGE_SIZE - 1))) {
 	  print(mmio_log, "but we know about it2!\n%s", "");
+	  success = (esr != 0x9600004f);
 	}
       }
     }
+#if 0
+    dump_page_table_for_va(read64(ppage + 0x3fe8), far);
+    dump_page_table_for_va(base + 0x3a84000, far);
+    dump_page_table_for_va(base + 0x3a80000, far);
+    dump_page_table_for_va(read64(ppage + 0x3fe8), far-4096);
+    dump_page_table_for_va(base + 0x3a84000, far-4096);
+    dump_page_table_for_va(base + 0x3a80000, far-4096);
+    dump_page_table_for_va(read64(ppage + 0x3fe8), far+4096);
+    dump_page_table_for_va(base + 0x3a84000, far+4096);
+    dump_page_table_for_va(base + 0x3a80000, far+4096);
+    if (esr == 0x96000047) {
+      write64(ppage + 0x3fd0, success);
+      asm volatile("dmb sy" : : : "memory");
+      asm volatile("dsb sy");
+      asm volatile("isb");
+      write64(ppage + 0x3ff0, 0);
+      return;
+    }
+#endif
     write64(ppage + 0x3fd0, success);
     asm volatile("dmb sy" : : : "memory");
     asm volatile("dsb sy");
@@ -1897,9 +1941,6 @@ static void handle_mmio()
 {
   print(mmio_log, "handling mmio %016lx %016lx\n",
   	read64(ppage + 0x3fa0), read64(ppage + 0x3fa8));
-  if (read64(ppage + 0x3fa8) != 0xc02000) {
-    sleep(5);
-  }
   do_handle_mmio();
   print(mmio_log, "handled mmio! success %d\n", read64(ppage+0x3fd0));
 }
@@ -1910,13 +1951,17 @@ bool sometimes()
   static time_t last_time;
   time_t this_time = time(NULL);
   if (this_time - last_time > 30) {
+#if 0
+    {
+      u64 pt4 = base + 0x3a84000;
+      printf("page table 4\n");
+      dump_pt_compressed(pt4);
+    }
+    sleep(5);
     u64 pc = read64(0x210040090);
     u32 insn32 = read32_at_va(pc|0xffff000000000000, base + 0x3a84000);
-    for (int i = 0; i < 32; i++) {
-      printf("PC %016lx insn %08x\n", pc + 4 * i, read32_at_va((pc+4*i)|0xffff000000000000, read64(0xb90003e08)));
-    }
-    verbose_translation(pc|0xffff000000000000, base + 0x3a84000);
-    verbose_translation(0xfffffff800000000, base + 0x3a84000);
+    //verbose_translation(pc|0xffff000000000000, base + 0x3a84000);
+    //verbose_translation(0xfffffff800000000, base + 0x3a84000);
   {
     u64 pt4 = base + 0x3a84000;
     install_page(0xfffffff000004000, 0x23b100000, PAGE_RW, pt4);
@@ -1926,9 +1971,10 @@ bool sometimes()
     install_page(0xfffffff800000000, 0xb90000000, 1, pt4);
     install_page(0xfffffff800004000, 0xb90004000, 4, pt4);
   }
-    verbose_translation(0xfffffff800000000, base + 0x3a84000);
+  //verbose_translation(0xfffffff800000000, base + 0x3a84000);
     //mmio_va_ranges.dump();
     //sleep(1);
+#endif
     last_time = this_time;
     return true;
   }
@@ -2103,7 +2149,7 @@ int main(int argc, char **argv)
 	write32(base + 0xc02000 + off + 4 * i, expose_ttbr_to_stack[i]);
       }
       unsigned oldbr = read32(base + 0xc02000 + off);
-      if (((oldbr & 0xff000000) == 0x14000000) && oldbr != 0x14000000)
+      if ((oldbr & 0xff000000) == 0x14000000)
 	write32(base + 0xc02000 + off + 0x4, oldbr - 1);
       else
 	write32(base + 0xc02000 + off + 0x4, oldbr);
@@ -2121,17 +2167,21 @@ int main(int argc, char **argv)
     write32(base + 0x13ecffc, 0x14000000);
 #endif
     unsigned long offs[] = {
-      0, 0x80, 0x200, 0x400,
+      0, /* 0x80, */
+      0x200,
+      0x400,
       0x8000 - 0x2000, 0x8200 - 0x2000, 0x8400 - 0x2000,
       0x9000 - 0x2000, 0x9200 - 0x2000, 0x9400 - 0x2000,
-      0x13ec000 - 0xc02000, 0x13ec200 - 0xc02000, 0x13ec400 - 0xc02000,
+      0x13ec000 - 0xc02000,
+      0x13ec200 - 0xc02000,
+      0x13ec400 - 0xc02000,
       0x13ec080 - 0xc02000, 0x13ec280 - 0xc02000, 0x13ec480 - 0xc02000,
       0x13ec100 - 0xc02000, 0x13ec300 - 0xc02000, 0x13ec500 - 0xc02000,
       0x13ec180 - 0xc02000, 0x13ec380 - 0xc02000, 0x13ec580 - 0xc02000,
     };
-#if 1
     for (int j = 0; j < ARRAYELTS(offs); j++) {
       unsigned long off = offs[j];
+      unsigned oldbr = read32(base + 0xc02000 + off);
       if (off < 0x13ec000 - 0xc02000) {
 	for (int i = 0; i < ARRAYELTS(new_vbar_entry); i++) {
 	  write32(base + 0xc02000 + off + 4 * i, new_vbar_entry[i]);
@@ -2141,18 +2191,17 @@ int main(int argc, char **argv)
 	  write32(base + 0xc02000 + off + 4 * i, new_vbar_entry_special[i]);
 	}
       }
-      unsigned oldbr = read32(base + 0xc02000 + off);
-      if (((oldbr & 0xff000000) == 0x14000000) && oldbr != 0x14000000)
+      if ((oldbr & 0xff000000) == 0x14000000)
 	write32(base + 0xc02000 + off + 0x4, oldbr - 1);
       else
 	write32(base + 0xc02000 + off + 0x4, oldbr);
+      print(mmio_log, "wrote branch %08x\n", read32(base + 0xc02000 + off + 0x4));
       //write32(base + 0xc02000 + off + 0x38, off);
 
       //write32(base + 0xc02000 + off, 0x1400001f);
       //write32(base + 0xc02000 + off + 31 * 4, 0x14000000);
       //write32(base + 0xc02000 + off, code3[0]);
     }
-#endif
 #endif
 #if 0
     for (int i = 0; i < ARRAYELTS(new_vbar_entry_for_mrs); i++) {
@@ -2223,6 +2272,7 @@ int main(int argc, char **argv)
     }
 
     printf("done\n");
+    exit(0);
   }
   base = read64(0xac0000008);
   mmio_pa_ranges.insert_range
