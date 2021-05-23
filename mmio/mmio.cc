@@ -1785,8 +1785,10 @@ static void steal_page_table(u64 pt)
 	size <<= 11;
       auto va_range = pa_range->virtualize(pte.pa0, pte.va0, pte.va0 + size);
       mmio_va_ranges[pt].insert_range(va_range);
-      write64(pte.ptep, 0);
-      unmapped++;
+      if (pte.level == 3) {
+	write64(pte.ptep, 0);
+	unmapped++;
+      }
     }
   }
   print(mmio_log, "found %ld page table pages, unmapped %ld, now have %ld mappings\n", pts.size(), unmapped, mmio_pa_ranges.size());
@@ -1838,10 +1840,6 @@ static void do_handle_mmio(bool verbose = false)
     print(mmio_log, "esr %016lx elr %016lx %016lx far {%016lx/%016lx} %016lx\n", esr, elr, realelr, far, va_to_baseoff(elr, pt), read64(ppage + 0x3fa8));
     print(mmio_log, "sp %016lx\n",
 	  read64_at_va(frame + 36 * 8, read64(ppage + 0x3fe8)));
-    if (0)
-    for (int i = 0; i < 32; i++)
-      print(mmio_log, "reg%02d: %016lx\n",
-	    i, read64_at_va(frame + 8 * i, read64(ppage + 0x3fe8)));
   }
 #if 0
   if ((esr & 0xe8000000UL) != 0x80000000UL) {
@@ -1861,8 +1859,8 @@ static void do_handle_mmio(bool verbose = false)
   }
   mmio_va_range *range = mmio_va_ranges[pt].find_range(far);
 
+  u64 frame = read64(ppage + 0x3fc8);
   if (!range) {
-    u64 frame = read64(ppage + 0x3fc8);
     print(mmio_log, "unknown far %016lx esr %016lx elr %016lx frame %016lx %016lx\n", far, esr,
 	  elr, frame, read64(ppage + 0x3fa8));
 #if 0
@@ -1870,19 +1868,19 @@ static void do_handle_mmio(bool verbose = false)
       print(mmio_log, "reg%02d: %016lx\n",
 	    i, read64_at_va(frame + 8 * i, read64(ppage + 0x3fe8)));
     //steal_page_table(read64(ppage + 0x3fe8));
+#endif
     for (auto pterange : pt_ranges(read64(ppage + 0x3fe8))) {
       if (pterange.va0 == (far & ~(PAGE_SIZE - 1))) {
 	print(mmio_log, "but we know about it!\n%s", "");
-	success = (esr != 0x9600004f);
+	//success = (esr != 0x9600004f);
       }
       for (auto page : pterange.pages()) {
 	if (page == (far & ~(PAGE_SIZE - 1))) {
 	  print(mmio_log, "but we know about it2!\n%s", "");
-	  success = (esr != 0x9600004f);
+	  //success = (esr != 0x9600004f);
 	}
       }
     }
-#endif
     write64(ppage + 0x3fd0, success);
     return;
   }
@@ -1903,6 +1901,11 @@ static void do_handle_mmio(bool verbose = false)
     success = false;
   } else {
     success = range->handle_insn(&insn, verbose);
+    if (success && verbose) {
+      for (int i = 0; i < 32; i++)
+	print(mmio_log, "reg%02d: %016lx\n",
+	      i, read64_at_va(frame + 8 * i, read64(ppage + 0x3fe8)));
+    }
     if (success) {
       write64(ppage + 0x3ff8, elr + 4);
     }
@@ -2111,17 +2114,17 @@ int main(int argc, char **argv)
       0xc09200,
       0xc09400,
       0x13ec000,
-      0x13ec080,
-      0x13ec100,
-      0x13ec180,
+      //0x13ec080,
+      //0x13ec100,
+      //0x13ec180,
       0x13ec200,
-      0x13ec280,
-      0x13ec300,
-      0x13ec380,
+      //0x13ec280,
+      //0x13ec300,
+      //0x13ec380,
       0x13ec400,
-      0x13ec480,
-      0x13ec500,
-      0x13ec580,
+      //0x13ec480,
+      //0x13ec500,
+      //0x13ec580,
     };
     for (int j = 0; j < ARRAYELTS(offs); j++) {
       unsigned long off = offs[j];
