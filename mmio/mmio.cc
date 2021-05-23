@@ -55,6 +55,7 @@ struct commpage {
   unsigned long code[0x3000/8];
   unsigned long mmio_master; /* 0x3e00 */
   unsigned long mmio_ttbr; /* 0x3e08 */
+  unsigned long mmio_real_elr; /* 0x3e10 */
   unsigned long boot_master; /* 0x3e88 */
   unsigned long pt_wait_flag; /* 0x3f00 */
   unsigned long pt_stolen_flag; /* 0x3f08 */
@@ -963,7 +964,7 @@ mmio_va_range *mmio_pa_range::virtualize(u64 pa, u64 va, u64 va_end)
 }
 
 static mmio_pa_table mmio_pa_ranges;
-static mmio_table mmio_va_ranges;
+static std::map<u64,mmio_table> mmio_va_ranges;
 
 
 std::string
@@ -1142,20 +1143,20 @@ mmio_pa_range_pt::store_u64(u64 pa, u64 val)
 			       pterange.off2 + (pa & (PAGE_SIZE - 1)) / 8,
 			       1);
 
-    if (mapped_va >= 0xfffffe0000000000 && mapped_va < 0xfffff0000000000) {
-    } else {
+    {
 #if 0
       print(mmio_log, "request to install mapping %016lx -> %016lx (%016lx %016lx) %ld %ld %ld + %ld at level %d + 1\n",
 	    mapped_va, mapped_pa, pa, pte, pterange.off0, pterange.off1, pterange.off2, (pa & (PAGE_SIZE - 1)) / 8, pterange.level);
 #endif
       auto pa_range = mmio_pa_ranges.find_range(mapped_pa);
       if (pa_range) {
-	auto va_range = mmio_va_ranges.find_range(mapped_va);
+	u64 pt = pterange.ttbr;
+	auto va_range = mmio_va_ranges[pt].find_range(mapped_va);
 	if (pa_range->still_valid()) {
 	  if (!va_range) {
 	    va_range = pa_range->virtualize(mapped_pa, mapped_va,
 					    mapped_va + PAGE_SIZE);
-	    mmio_va_ranges.insert_range(va_range);
+	    mmio_va_ranges[pt].insert_range(va_range);
 	  }
 	  pa_range_pa->store_u64(pa, 0);
 	  return;
@@ -1430,7 +1431,6 @@ bool simulate_insn(unsigned long frame, unsigned insn,
       //print("[handled] interrupt %016lx %d\n", pa, t);
       write64(ppage + 0x3fb8, 0xfffffff000004000 + (pa & 0x3fff));
       write64(ppage + 0x3fb0, frame + t * 8);
-      //write64(ppage + 0x3ff8, elr + 4);
       install_page(0xfffffff000004000,
 		   0x23b100000, 2, read64(ppage + 0x3fe8));
       //install_page2(0xfffffff000004000,
@@ -1484,8 +1484,6 @@ bool simulate_insn(unsigned long frame, unsigned insn,
       (insn & 0xffc00000) == 0xf9400000) {
     /* 64-bit LDR (register, unsigned offset) */
     u64 val = action ? read64(pa) : 0;
-    //if (pa == 0x210040090)
-    //  val = (elr + 4) &~ 0xfffe000000000000;
     print(mmio_log, "%016lx -> %016lx {%016lx / %016lx}%s\n", pa, val,
 	  elr, va_to_baseoff(elr, level0),
 	  action ? "" : "[ignored]");
@@ -1786,7 +1784,7 @@ static void steal_page_table(u64 pt)
       if (pte.level < 2)
 	size <<= 11;
       auto va_range = pa_range->virtualize(pte.pa0, pte.va0, pte.va0 + size);
-      mmio_va_ranges.insert_range(va_range);
+      mmio_va_ranges[pt].insert_range(va_range);
       write64(pte.ptep, 0);
       unmapped++;
     }
@@ -1831,8 +1829,20 @@ static void do_handle_mmio(bool verbose = false)
   u64 success = 0;
   u64 esr = read64(ppage + 0x3fd8);
   u64 elr = read64(ppage + 0x3ff8);
-  if (verbose)
-    print(mmio_log, "esr %016lx\n", esr);
+  u64 realelr = read64(ppage + 0x3e10);
+  u64 far = read64(ppage + 0x3ff0);
+  u64 pt = read64(ppage + 0x3e08);
+  if (verbose) {
+    u64 pt4 = base + 0x3a84000;
+    u64 frame = read64(ppage + 0x3fc8);
+    print(mmio_log, "esr %016lx elr %016lx %016lx far {%016lx/%016lx} %016lx\n", esr, elr, realelr, far, va_to_baseoff(elr, pt), read64(ppage + 0x3fa8));
+    print(mmio_log, "sp %016lx\n",
+	  read64_at_va(frame + 36 * 8, read64(ppage + 0x3fe8)));
+    if (0)
+    for (int i = 0; i < 32; i++)
+      print(mmio_log, "reg%02d: %016lx\n",
+	    i, read64_at_va(frame + 8 * i, read64(ppage + 0x3fe8)));
+  }
 #if 0
   if ((esr & 0xe8000000UL) != 0x80000000UL) {
     write64(ppage + 0x3fd0, success);
@@ -1849,13 +1859,12 @@ static void do_handle_mmio(bool verbose = false)
     //write64_to_va(va, event, read64(ppage + 0x3fe8));
     return;
   }
-  u64 far = read64(ppage + 0x3ff0);
-  mmio_va_range *range = mmio_va_ranges.find_range(far);
+  mmio_va_range *range = mmio_va_ranges[pt].find_range(far);
 
   if (!range) {
     u64 frame = read64(ppage + 0x3fc8);
-    print(mmio_log, "unknown far %016lx esr %016lx elr %016lx frame %016lx\n", far, esr,
-	  elr, frame);
+    print(mmio_log, "unknown far %016lx esr %016lx elr %016lx frame %016lx %016lx\n", far, esr,
+	  elr, frame, read64(ppage + 0x3fa8));
 #if 0
     for (int i = 0; i < 32; i++)
       print(mmio_log, "reg%02d: %016lx\n",
@@ -1906,15 +1915,17 @@ static void do_handle_mmio(bool verbose = false)
 
 static void handle_mmio()
 {
+  static u64 last_3fa8;
   read64(ppage + 0x3fa0), read64(ppage + 0x3fa8);
+  do_handle_mmio(last_3fa8 != read64(ppage + 0x3fa8));
+  last_3fa8 = read64(ppage + 0x3fa8);
 #if 0
-#endif
-  do_handle_mmio();
   if (!read64(ppage+0x3fd0)) {
     print(mmio_log, "handling mmio %016lx %016lx\n",
 	  read64(ppage + 0x3fa0), read64(ppage + 0x3fa8));
     do_handle_mmio(true);
   }
+#endif
   asm volatile("dmb sy" : : : "memory");
   asm volatile("dsb sy");
   asm volatile("isb");
@@ -2201,7 +2212,10 @@ int main(int argc, char **argv)
      (new mmio_pa_range_nop(0x23d2b0000, 0x23d2c0000)));
   mmio_pa_ranges.insert_range
     (new mmio_pa_range_log
-     (new mmio_pa_range_pa(0x200000000, 0x23b000000)));
+     (new mmio_pa_range_pa(0x200000000, 0x210000000)));
+  mmio_pa_ranges.insert_range
+    (new mmio_pa_range_log
+     (new mmio_pa_range_pa(0x210e50000, 0x23b000000)));
   mmio_pa_ranges.insert_range
     (new mmio_pa_range_log
      (new mmio_pa_range_pa(0x23b200000, 0x300000000)));
