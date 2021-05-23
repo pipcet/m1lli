@@ -60,12 +60,11 @@
         ldr x30, [sp], #32
 
 	ldp x29, x30, [sp], #16
-	ldr x0, [sp], #16
-	mov sp, x0
-	ldr x0, [sp, 8/*64*/]
-	ldr x1, [sp, /*872*/16]
+	ldp x0,x1,[sp],#16
+	ldp x0,x1,[sp],#16
+	msr spsel,#1
+	eret
 	.inst 0x00201400
-	b .
 3:
 	ldp x0, x1, [sp], #16
         ldp x2, x3, [sp], #16
