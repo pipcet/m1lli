@@ -4,9 +4,9 @@ long mmiotrace(unsigned long frame)
 {
   if (*(VPAGE + (0x3e00/8)) == 0)
     return 0;
-  unsigned long off = *(unsigned long *)(frame + 33 * 8);
-  *(VPAGE + (0x3fa0/8)) = *(unsigned long *)(frame + 32 * 8);
-  *(VPAGE + (0x3fa8/8)) = *(unsigned long *)(frame + 33 * 8);
+  unsigned long off = *(unsigned long *)(frame + 35 * 8);
+  *(VPAGE + (0x3fa0/8)) = *(unsigned long *)(frame + 34 * 8);
+  *(VPAGE + (0x3fa8/8)) = *(unsigned long *)(frame + 35 * 8);
   unsigned long esr;
   //if ((esr & 0xe8000000) != 0x80000000)
   //  return 0;
