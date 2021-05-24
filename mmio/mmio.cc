@@ -455,9 +455,9 @@ static FILE *mmio_log;
 #define print(log, fmt, ...) do {					\
     struct timeval tv;							\
     gettimeofday(&tv, NULL);						\
-    fprintf(log, "[%16ld.%06ld] " fmt, (long)tv.tv_sec, (long)tv.tv_usec, __VA_ARGS__); \
+    fprintf(log, "[%8ld.%06ld] " fmt, (long)tv.tv_sec, (long)tv.tv_usec, __VA_ARGS__); \
     fflush(log);							\
-    fprintf(stderr, "[%16ld.%06ld] " fmt, (long)tv.tv_sec, (long)tv.tv_usec, __VA_ARGS__); \
+    fprintf(stderr, "[%8ld.%06ld] " fmt, (long)tv.tv_sec, (long)tv.tv_usec, __VA_ARGS__); \
   } while (0)
 
 typedef unsigned __int128 u128;
@@ -1232,8 +1232,8 @@ void mmio_pa_range_log::store(mmio_insn *insn, u64 pa, u128 val)
 #define CASE(size,str)							\
     case size:								\
       print(mmio_log,							\
-	    "%016lx <- " str " {%016lx/%016lx}%s\n", pa,		\
-	    (long)val, insn->elr, va_to_baseoff(insn->elr, insn->level0), \
+	    "%016lx <- " str " {%016lx}%s\n", pa,		\
+	    (long)val, va_to_baseoff(insn->elr, insn->level0), \
 	    lower->describe().c_str());					\
       break
 
@@ -1244,8 +1244,8 @@ void mmio_pa_range_log::store(mmio_insn *insn, u64 pa, u128 val)
 #undef CASE
   default:
     print(mmio_log,
-	  "%016lx <- %lx {%016lx/%016lx}%s\n", pa,
-	  (long)val, insn->elr, va_to_baseoff(insn->elr, insn->level0),
+	  "%016lx <- %lx {%016lx}%s\n", pa,
+	  (long)val, va_to_baseoff(insn->elr, insn->level0),
 	  lower->describe().c_str());
   }
   lower->store(insn, pa, val);
@@ -2215,27 +2215,26 @@ int main(int argc, char **argv)
     exit(0);
   }
   base = read64(0xac0000008);
-#if 0
-  mmio_pa_ranges.insert_range
-    (//new mmio_pa_range_log
-     (new mmio_pa_range_pa(0x200000000, 0x210000000)));
-  mmio_pa_ranges.insert_range
-    (//new mmio_pa_range_log
-     (new mmio_pa_range_pa(0x210e50000, 0x23b000000)));
-  mmio_pa_ranges.insert_range
-    (//new mmio_pa_range_log
-     (new mmio_pa_range_pa(0x23b000000, 0x23d2b0000)));
-#endif
-#if 1
-  mmio_pa_ranges.insert_range
-    (new mmio_pa_range_log
-     (new mmio_pa_range_pa(0x23d2b0000, 0x23d2c0000)));
-#endif
-#if 0
-  mmio_pa_ranges.insert_range
-    (//new mmio_pa_range_log
-     (new mmio_pa_range_pa(0x23d2c0000, 0x800000000)));
-#endif
+  if (1) {
+    mmio_pa_ranges.insert_range
+      (new mmio_pa_range_log
+       (new mmio_pa_range_pa(0x200000000, 0x210000000)));
+    mmio_pa_ranges.insert_range
+      (new mmio_pa_range_log
+       (new mmio_pa_range_pa(0x210e50000, 0x235104000)));
+    mmio_pa_ranges.insert_range
+      (new mmio_pa_range_log
+       (new mmio_pa_range_pa(0x235108000, 0x23b000000)));
+    mmio_pa_ranges.insert_range
+      (new mmio_pa_range_log
+       (new mmio_pa_range_pa(0x23b000000, 0x23d2b0000)));
+    mmio_pa_ranges.insert_range
+      (new mmio_pa_range_log
+       (new mmio_pa_range_nop(0x23d2b0000, 0x23d2c0000)));
+    mmio_pa_ranges.insert_range
+      (new mmio_pa_range_log
+       (new mmio_pa_range_pa(0x23d2c0000, 0x800000000)));
+  }
   if (0)
     mmio_pa_ranges.insert_range
       (/* new mmio_pa_range_log */
