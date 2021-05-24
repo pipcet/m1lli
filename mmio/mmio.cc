@@ -457,6 +457,7 @@ static FILE *mmio_log;
     gettimeofday(&tv, NULL);						\
     fprintf(log, "[%16ld.%06ld] " fmt, (long)tv.tv_sec, (long)tv.tv_usec, __VA_ARGS__); \
     fflush(log);							\
+    fprintf(stderr, "[%16ld.%06ld] " fmt, (long)tv.tv_sec, (long)tv.tv_usec, __VA_ARGS__); \
   } while (0)
 
 typedef unsigned __int128 u128;
@@ -1295,6 +1296,13 @@ bool mmio_va_range::handle_insn(mmio_insn *insn, bool verbose)
     write_reg(insn->frame, n, read_reg(insn->frame, n, insn->level0) + 4, insn->level0);
     insn32 = 0xb8600809;
   }
+  if (insn32 == 0xbd400000) {
+    insn->size = 4;
+    u128 val = load(insn);
+    write_reg(insn->frame, 32, val, insn->level0);
+    print(mmio_log, "FP from MMIO!\n%s", "");
+    return true;
+  }
   if ((insn32 | MASK_T | MASK_N) == 0xf80087ff) {
     /* 64-bit STR, post-increment */
     int n = (insn32 >> 5) & 31;
@@ -1843,13 +1851,13 @@ static void do_handle_mmio(bool verbose = false)
   }
   u64 success = 0;
   u64 esr = read64(ppage + 0x3fd8);
+  u64 frame = read64(ppage + 0x3fc8);
   u64 elr = read64(ppage + 0x3ff8);
   u64 realelr = read64(ppage + 0x3e10);
   u64 far = read64(ppage + 0x3ff0);
   u64 pt = read64(ppage + 0x3e08);
   if (verbose) {
     u64 pt4 = base + 0x3a84000;
-    u64 frame = read64(ppage + 0x3fc8);
     print(mmio_log, "esr %016lx elr %016lx %016lx far {%016lx/%016lx} %016lx\n", esr, elr, realelr, far, va_to_baseoff(elr, pt), read64(ppage + 0x3fa8));
     print(mmio_log, "sp %016lx\n",
 	  read64_at_va(frame + 36 * 8, read64(ppage + 0x3fe8)));
@@ -1872,7 +1880,6 @@ static void do_handle_mmio(bool verbose = false)
   }
   mmio_va_range *range = mmio_va_ranges[pt].find_range(far);
 
-  u64 frame = read64(ppage + 0x3fc8);
   if (!range) {
     //print(mmio_log, "unknown far %016lx esr %016lx elr %016lx frame %016lx %016lx\n", far, esr,
     // elr, frame, read64(ppage + 0x3fa8));
@@ -1904,7 +1911,7 @@ static void do_handle_mmio(bool verbose = false)
   u64 base = read64(0xac0000008);
   u64 pt4 = base + 0x3a84000;
   insn.level0 = read64(ppage + 0x3fe8);
-  insn.frame = read64(ppage + 0x3fc8);
+  insn.frame = frame;
   insn.size = 0;
 
   if (insn.elr == insn.va) { /* not perfect */
@@ -2219,7 +2226,7 @@ int main(int argc, char **argv)
     (//new mmio_pa_range_log
      (new mmio_pa_range_pa(0x23b000000, 0x23d2b0000)));
 #endif
-#if 0
+#if 1
   mmio_pa_ranges.insert_range
     (new mmio_pa_range_log
      (new mmio_pa_range_pa(0x23d2b0000, 0x23d2c0000)));
