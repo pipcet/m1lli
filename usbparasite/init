@@ -10,7 +10,7 @@ touch /mmio-map
 touch /mmio-log
 # tail -f /mmio-log &
 touch /pt-log
-tail -f /pt-log &
+# tail -f /pt-log &
 
 (while true; do mmio; sleep 1; done) &
 mmio init &
@@ -26,7 +26,7 @@ COUNT=1
 #     pt unmap-pa 0x23e050000
 #     wait4pt clear $(cat addr) || echo "not active"
 # done) &
-(while sleep 1m; do cat mmio-map; done) &
+# (while sleep 1m; do cat mmio-map; done) &
 # (sleep 5m; while sleep 3; do
 #      pt unmap-pa 0x23d2b0000 0x23d2b4000
 #      pt unmap-pa 0x200000000 0x23b000000
@@ -35,9 +35,9 @@ COUNT=1
 #      pt unmap-pa 0x23e400000
 #      pt unmap-pa 0x23e050000
 #  done) &
-(while true; do memtool mw 0x210030fb0 0xc5acce55; memtool md 0x210040090+8; sleep 5; done) &
-echo "init2 done"
-(sleep 1m; while true; do /bin/scanmem; sleep 1; done) &
+# (while true; do memtool mw 0x210030fb0 0xc5acce55; memtool md 0x210040090+8; sleep 5; done) &
+# echo "init2 done"
+# (sleep 1m; while true; do /bin/scanmem; sleep 1; done) &
 
 sleep 1
 
@@ -51,6 +51,7 @@ sleep 1
 while true; do
     for i in $(seq 1 80); do
 	sleep 1
+	continue
 	# memtool mw 0x23d2b0010 0 0xffffffff 0 0
 	# echo heartbeat > /sys/class/leds/kbd_backlight/trigger
 	memtool mw 0x235044018 0 128
