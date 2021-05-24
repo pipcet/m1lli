@@ -72,9 +72,9 @@ static void *thread_routine(void *offset_v)
     case '|': {
       /* execute a command with stdio */
       command = strdup((char *)(page + 1024));
-      child = fork();
       pipe(pfd);
       pipe(pfd + 2);
+      child = fork();
       if (child == 0) {
 	close(pfd[1]);
 	close(pfd[2]);
