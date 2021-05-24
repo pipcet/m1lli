@@ -457,7 +457,6 @@ static FILE *mmio_log;
     gettimeofday(&tv, NULL);						\
     fprintf(log, "[%16ld.%06ld] " fmt, (long)tv.tv_sec, (long)tv.tv_usec, __VA_ARGS__); \
     fflush(log);							\
-    fprintf(stderr, "[%16ld.%06ld] " fmt, (long)tv.tv_sec, (long)tv.tv_usec, __VA_ARGS__); \
   } while (0)
 
 typedef unsigned __int128 u128;
@@ -2058,12 +2057,8 @@ int main(int argc, char **argv)
     write64(0xb90003e10, 0xb90010000);
     printf("TTBR at %016lx\n", read64(0xb90003e08));
     //printf("TTBR at %016lx\n", read64(base + 0x49f4018));
-    install_page(0xfffffff000004000, 0x23b100000, PAGE_RW, read64(0xb90003e08));
     install_page(0xfffffff000000000, 0xb90000000, PAGE_RW, read64(0xb90003e08));
-    install_page(0xfffffff100000000, 0x23b100000, PAGE_RW, read64(0xb90003e08));
-    install_page(0xfffffff100008000, 0x23d2b0000, PAGE_RW, read64(0xb90003e08));
     install_page(0xfffffff800000000, 0xb90000000, 1, read64(0xb90003e08));
-    install_page(0xfffffff800004000, 0xb90004000, 1, read64(0xb90003e08));
     printf("page table 1\n");
     dump_pt_compressed(read64(0xb90003e08));
     printf("page table 2\n");
@@ -2071,23 +2066,15 @@ int main(int argc, char **argv)
     printf("page table 3\n");
     dump_pt(base + 0x806b94000 - 0x8030bc000);
     //install_page2(0x0001fff800004000, 0xb90004000, 1, read64(base + 0x3ad66e8));
-    install_page(0xfffffff000004000, 0x23b100000, PAGE_RW, read64(0xb90003e08));
     install_page(0xfffffff000000000, 0xb90000000, PAGE_RW, read64(0xb90003e08));
-    install_page(0xfffffff100000000, 0x23b100000, PAGE_RW, read64(0xb90003e08));
-    install_page(0xfffffff100008000, 0x23d2b0000, PAGE_RW, read64(0xb90003e08));
     install_page(0xfffffff800000000, 0xb90000000, 1, read64(0xb90003e08));
-    install_page(0xfffffff800004000, 0xb90004000, 1, read64(0xb90003e08));
 
     //write32(0xc0d8a4,  0xd42c8e40);
     u64 pt4 = base + 0x3a84000;
     printf("page table 4\n");
     dump_pt_compressed(pt4);
-    install_page(0xfffffff000004000, 0x23b100000, PAGE_RW, pt4);
     install_page(0xfffffff000000000, 0xb90000000, PAGE_RW, pt4);
-    install_page(0xfffffff100000000, 0x23b100000, PAGE_RW, pt4);
-    install_page(0xfffffff100008000, 0x23d2b0000, PAGE_RW, pt4);
     install_page(0xfffffff800000000, 0xb90000000, 1, pt4);
-    install_page(0xfffffff800004000, 0xb90004000, 4, pt4);
 
     {
       int i = 0;
@@ -2120,13 +2107,15 @@ int main(int argc, char **argv)
     unsigned long offs[] = {
       0xc02000,
       0xc02200,
-      0xc02400,
+      //0xc02400,
+#if 0
       0xc08000,
       0xc08200,
       0xc08400,
       0xc09000,
       0xc09200,
       0xc09400,
+#endif
       0x13ec000,
       //0x13ec080,
       //0x13ec100,
@@ -2135,7 +2124,7 @@ int main(int argc, char **argv)
       //0x13ec280,
       //0x13ec300,
       //0x13ec380,
-      0x13ec400,
+      //0x13ec400,
       //0x13ec480,
       //0x13ec500,
       //0x13ec580,
@@ -2157,7 +2146,7 @@ int main(int argc, char **argv)
       else
 	write32(base + off + 0x4, oldbr);
     }
-    write32(base + 0x13ec7fc, 0x14000000);
+    //write32(base + 0x13ec7fc, 0x14000000);
     write64(ppage + 0x3f00, 1);
     //system("pt unmap-pa 0x23d2b0000 0x23d2b4000 0");
     asm volatile("isb");
@@ -2165,13 +2154,13 @@ int main(int argc, char **argv)
     sleep(20);
     write64(0xb90003e08, read64(base + 0x3ad66f0));
     write64(0xb90003e08, read64(base + 0x3ad66f0));
-    install_page(0xfffffff000004000, 0x23b100000, PAGE_RW, read64(0xb90003e08));
+    //install_page(0xfffffff000004000, 0x23b100000, PAGE_RW, read64(0xb90003e08));
     install_page(0xfffffff000000000, 0xb90000000, PAGE_RW, read64(0xb90003e08));
-    install_page(0xfffffff100000000, 0x23b100000, PAGE_RW, read64(0xb90003e08));
-    install_page(0xfffffff100008000, 0x23d2b0000, PAGE_RW, read64(0xb90003e08));
+    //install_page(0xfffffff100000000, 0x23b100000, PAGE_RW, read64(0xb90003e08));
+    //install_page(0xfffffff100008000, 0x23d2b0000, PAGE_RW, read64(0xb90003e08));
     install_page(0xfffffff800000000, 0xb90000000, 1, read64(0xb90003e08));
-    install_page(0xfffffff800004000, 0xb90004000, 1, read64(0xb90003e08));
-    {
+    //install_page(0xfffffff800004000, 0xb90004000, 1, read64(0xb90003e08));
+    if (0) {
       printf("page table 1[3]: %016lx\n", read64(0xb90003e08));;
       dump_pt_compressed(read64(0xb90003e08));
       printf("page table 2[3]: %016lx\n", 0x806b98000 - 0x8030bc000);
@@ -2192,7 +2181,7 @@ int main(int argc, char **argv)
       install_page(0xfffffff800000000, 0xb90000000, 1, read64(0xb90003e08));
       install_page(0xfffffff800004000, 0xb90004000, 1, read64(0xb90003e08));
 
-      write32(0xc0d8a4,  0xd42c8e40);
+      //write32(0xc0d8a4,  0xd42c8e40);
       u64 pt4 = base + 0x3a84000;
       printf("page table 4[3]: %016lx\n", pt4);
       dump_pt_compressed(pt4);
@@ -2208,11 +2197,6 @@ int main(int argc, char **argv)
       //for (int i = 1; i < ARRAYELTS(infloop); i++)
       //  write32(base + 0xc0d8a0 + i * 4, saved_code[1][i]);
       //write32(base + 0xc0d8a0, saved_code[1][0]);
-    }
-    {
-      u64 pt4 = base + 0x3a84000;
-      printf("page table 4\n");
-      dump_pt_compressed(pt4);
     }
     sleep(5);
     for (int j = 0; j < ARRAYELTS(offs); j++) {
@@ -2234,12 +2218,17 @@ int main(int argc, char **argv)
   mmio_pa_ranges.insert_range
     (//new mmio_pa_range_log
      (new mmio_pa_range_pa(0x23b000000, 0x23d2b0000)));
+#endif
+#if 0
   mmio_pa_ranges.insert_range
-    (//new mmio_pa_range_log
-     (new mmio_pa_range_nop(0x23d2b0000, 0x23d2c0000)));
+    (new mmio_pa_range_log
+     (new mmio_pa_range_pa(0x23d2b0000, 0x23d2c0000)));
+#endif
+#if 0
   mmio_pa_ranges.insert_range
     (//new mmio_pa_range_log
      (new mmio_pa_range_pa(0x23d2c0000, 0x800000000)));
+#endif
   if (0)
     mmio_pa_ranges.insert_range
       (/* new mmio_pa_range_log */
@@ -2248,7 +2237,6 @@ int main(int argc, char **argv)
     mmio_pa_ranges.insert_range
       (/* new mmio_pa_range_log */
        (new mmio_pa_range_pa(0xbdf438000, 0xbdf440000)));
-#endif
 
   start_mmio();
 
