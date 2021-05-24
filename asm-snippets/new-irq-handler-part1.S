@@ -1,6 +1,6 @@
 	stp x0, x1, [sp, #-16]!
 	ldp x0, x1, [sp, #16]
-	str s0, [sp, #-16]!
+	str q0, [sp, #-16]!
 	stp x30, xzr, [sp, #-16]!
 	stp x28, x29, [sp, #-16]!
 	stp x26, x27, [sp, #-16]!
@@ -40,7 +40,7 @@
         ldp x26, x27, [sp], #16
         ldp x28, x29, [sp], #16
         ldr x30, [sp], #16
-	ldr s0, [sp], #16
+	ldr q0, [sp], #16
 	add sp, sp, #32
 	ldp x29, x30, [sp], #16
 	eret
@@ -60,7 +60,7 @@
         ldp x26, x27, [sp], #16
         ldp x28, x29, [sp], #16
         ldr x30, [sp], #16
-	ldr s0, [sp], #16
+	ldr q0, [sp], #16
 	add sp, sp, #32
 	ldp x29, x30, [sp], #16
 	msr spsel,#1
@@ -83,7 +83,7 @@
         ldp x26, x27, [sp], #16
         ldp x28, x29, [sp], #16
         ldr x30, [sp], #16
-	ldr s0, [sp], #32
+	ldr q0, [sp], #32
 	stp x0, x1, [sp]
 	ret
 
