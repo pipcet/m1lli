@@ -110,6 +110,10 @@ static void *thread_routine(void *offset_v)
     default:
       break;
     }
+    asm volatile("isb");
+    asm volatile("dmb sy");
+    asm volatile("dsb sy");
+    asm volatile("isb");
     page[4] = 0;
   }
  noluck:
