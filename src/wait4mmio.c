@@ -17,8 +17,9 @@ static FILE *log;
     gettimeofday(&tv, NULL);						\
     fprintf(log, "[%16ld.%06ld] " fmt, (long)tv.tv_sec, (long)tv.tv_usec, __VA_ARGS__); \
     fflush(log);							\
-    fprintf(stderr, "[%16ld.%06ld] " fmt, (long)tv.tv_sec, (long)tv.tv_usec, __VA_ARGS__); \
-    usleep(150000);								\
+    if (1)fprintf(stderr, "[%16ld.%06ld] " fmt, (long)tv.tv_sec, (long)tv.tv_usec, __VA_ARGS__); \
+    fflush(stderr);							\
+    if (1) usleep(500000);						\
   } while (0)
 
 bool simulate_insn(unsigned long frame, unsigned insn,
@@ -181,7 +182,7 @@ int main(void)
     log = stdout;
   //write64(ppage + 0x3ff8, 0xffffffff);
   write64(ppage + 0x3fb0, 0);
-  printf("initialized\n");
+  print("initialized%s\n", "");
   asm volatile("dmb sy");
   asm volatile("dsb sy");
   asm volatile("isb");
@@ -194,18 +195,16 @@ int main(void)
       sched_yield();
     unsigned long esr = read64(ppage + 0x3fd8);
     unsigned long elr = read64(ppage + 0x3ff8);
-    if ((esr & 0xfc000000UL) != 0x54000000UL) {
-      if ((esr & 0xfc000000UL) == 0x88000000) {
-	static int seen = 0;
-	if (!seen) {
-	  seen = 1;
-	  printf("received brk esr %016lx at %016lx!\n", esr, elr);
-	}
-      } else {
-	//printf("received brk esr %016lx at %016lx!\n", esr, elr);
-      }
-    }
     if ((esr & 0x0f8000000UL) != 0x090000000UL) {
+      print("received brk esr %016lx at %016lx!\n", esr, elr);
+      write64(ppage + 0x3fd0, success);
+      asm volatile("dmb sy" : : : "memory");
+      asm volatile("dsb sy");
+      asm volatile("isb");
+      write64(ppage + 0x3ff0, 0);
+      continue;
+    }
+    if (esr == 0x9600004f) {
       write64(ppage + 0x3fd0, success);
       asm volatile("dmb sy" : : : "memory");
       asm volatile("dsb sy");
@@ -251,30 +250,42 @@ int main(void)
 	//write64_to_va(va, event, read64(ppage + 0x3fe8));
 	continue;
       }
-      do {
-	unsigned insn = 0;
+      unsigned insn = 0;
 
+      print("esr %016lx elr %016lx far %016lx\n", esr, elr, far);
+      do {
 	unsigned long va = far;
 	unsigned long off0 = (va >> (14 + 11 + 11)) & 2047;
 	unsigned long off1 = (va >> (14 + 11)) & 2047;
 	unsigned long off2 = (va >> (14)) & 2047;
 	unsigned long level0 = read64(ppage + 0x3e08);
-	if (!(read64(level0 + off0 * 8) & 1))
+	if (!(read64(level0 + off0 * 8) & 1)) {
+	  print("no level0! %016lx\n", far);
 	  break;
+	}
 	unsigned long level1 = read64(level0 + off0 * 8) & 0xfffffff000;
-	if (!(read64(level1 + off1 * 8) & 1))
+	if (!(read64(level1 + off1 * 8) & 1)) {
+	  print("no level1! %016lx\n", far);
 	  break;
+	}
 	unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
 	if (!(read64(level2 + off2 * 8) & 1)) {
 	  //print("esr %016lx elr %016lx\n", esr, elr);
-	  //print("esr %016lx elr %016lx\n", esr, elr);
-	  unsigned long pa, va, action;
-	  FILE *f = fopen("/mmio-map", "r");
+	  unsigned long pa, va, action = 1;
+#if 0
+	  file *f = fopen("/mmio-map", "r");
 	  while (fscanf(f, "%ld %ld %ld\n", &pa, &va, &action) == 3) {
 	    if ((read64(level2 + off2 * 8) & 0xffffffc000) == pa) {
+#endif
+	      pa = (read64(level2 + off2 * 8) & 0xffffffc000);
+	      if ((pa & 0xfffff0000) == 0x23d2b0000)
+		action = 0;
+	      va = far;
+	      if (pa) {
 	      success = true;
 	      insn = insn_at_va(elr, read64(ppage + 0x3fe8));
-	      if (simulate_insn(read64(ppage + 0x3fc8), insn, elr, far, pa,
+	      if (false &&
+		  simulate_insn(read64(ppage + 0x3fc8), insn, elr, far, pa,
 				read64(ppage + 0x3fe8), action)) {
 		static int count = 32768;
 		if (count-- == 0) {
@@ -299,23 +310,24 @@ int main(void)
 		      insn_at_va(elr, read64(ppage + 0x3fe0)),
 		      elr);
 	      }
-	      break;
+	      } else
+		print("null pa for %016lx\n", va);
+#if 0
+	      goto close;
 	    }
 	  }
+	  print("couldn't find mmio addr %016lx\n", far);
+	close:
 	  fclose (f);
+#endif
+	} else {
+	  print("level2 valid at %016lx\n", far);
 	}
 	unsigned long level3 = read64(level2 + off2 * 8) & 0xfffffff000;
-	if (success) {
-#if 0
-	  print("FAR %016lx ELR %016lx ESR %016lx insn %08x\n", far, elr, esr,
-		insn);
-
-	  print("PA %016lx\n", level3);
-	  fflush(stdout);
-#endif
-	}
       } while (0);
       if (!success) {
+	//print("FAR %016lx ELR %016lx ESR %016lx \n", far, elr, esr);
+
 	write64(ppage + 0x3fd0, success);
 	asm volatile("dmb sy");
 	asm volatile("dsb sy");
