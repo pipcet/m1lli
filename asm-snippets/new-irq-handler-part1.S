@@ -1,5 +1,6 @@
 	stp x0, x1, [sp, #-16]!
 	ldp x0, x1, [sp, #16]
+	str s0, [sp, #-16]!
 	stp x30, xzr, [sp, #-16]!
 	stp x28, x29, [sp, #-16]!
 	stp x26, x27, [sp, #-16]!
@@ -38,8 +39,9 @@
         ldp x24, x25, [sp], #16
         ldp x26, x27, [sp], #16
         ldp x28, x29, [sp], #16
-        ldr x30, [sp], #48
-
+        ldr x30, [sp], #16
+	ldr s0, [sp], #16
+	add sp, sp, #32
 	ldp x29, x30, [sp], #16
 	eret
 4:	ldp x0, x1, [sp], #16
@@ -57,11 +59,10 @@
         ldp x24, x25, [sp], #16
         ldp x26, x27, [sp], #16
         ldp x28, x29, [sp], #16
-        ldr x30, [sp], #32
-
+        ldr x30, [sp], #16
+	ldr s0, [sp], #16
+	add sp, sp, #32
 	ldp x29, x30, [sp], #16
-	ldp x0,x1,[sp],#16
-	ldp x0,x1,[sp],#16
 	msr spsel,#1
 	eret
 	.inst 0x00201400
@@ -81,7 +82,9 @@
         ldp x24, x25, [sp], #16
         ldp x26, x27, [sp], #16
         ldp x28, x29, [sp], #16
-        ldr x30, [sp], #32
+        ldr x30, [sp], #16
+	ldr s0, [sp], #32
+	stp x0, x1, [sp]
 	ret
 
 	.align 3
