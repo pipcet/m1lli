@@ -1014,6 +1014,7 @@ std::string mmio_pa_range::describe()
   return "[no description]";
 }
 
+
 std::string mmio_pa_range_pa::describe()
 {
   return "[PA]";
@@ -1119,7 +1120,7 @@ mmio_pa_range_pt::store_u64(u64 pa, u64 val)
       pterange.va0 = offs_to_va(pterange.off0, pterange.off1, pterange.off2,
 				1);
       auto pt_range =
-	new mmio_pa_range_log
+	//new mmio_pa_range_log
 	(new mmio_pa_range_pt(pt, pt + PAGE_SIZE, pterange));
       mmio_pa_ranges.insert_range(pt_range);
       if (0)
@@ -1194,8 +1195,13 @@ class mmio_pa_range_nop
 {
 public:
   mmio_pa_range_nop(u64 pa, u64 pa_end);
+  virtual std::string describe();
 };
 
+std::string mmio_pa_range_nop::describe()
+{
+  return "[nop]";
+}
 mmio_pa_range_nop::mmio_pa_range_nop(u64 pa, u64 pa_end)
   : mmio_pa_range(pa, pa_end)
 {
@@ -1295,6 +1301,12 @@ bool mmio_va_range::handle_insn(mmio_insn *insn, bool verbose)
     int n = (insn32 >> 5) & 31;
     write_reg(insn->frame, n, read_reg(insn->frame, n, insn->level0) + 8, insn->level0);
     insn32 = 0xf8200800 + t;
+  }
+  if ((insn32) == 0xb8414d09) {
+    /* 32-bit LDR, pre-increment */
+    int n = (insn32 >> 5) & 31;
+    write_reg(insn->frame, n, read_reg(insn->frame, n, insn->level0) + 20, insn->level0);
+    insn32 = 0xb9404109;
   }
   if ((insn32 | MASK_T | MASK_N) == (0x38001400 | MASK_T | MASK_N)) {
     /* 8-bit STRB, post-increment */
@@ -1757,7 +1769,7 @@ static void steal_page_table(u64 pt)
       auto rangerange = pts.equal_range(page);
       for (auto it = rangerange.first; it != rangerange.second; it++) {
 	auto pa_range =
-	  new mmio_pa_range_log
+	  //new mmio_pa_range_log
 	  (new mmio_pa_range_pt(page, page + 0x4000,
 				it->second));
 	mmio_pa_ranges.insert_range(pa_range);
@@ -1765,7 +1777,7 @@ static void steal_page_table(u64 pt)
     }
     if (pterange.pt0) {
       auto pa_range =
-	new mmio_pa_range_log
+	//new mmio_pa_range_log
 	(new mmio_pa_range_pt(pterange.pt0,
 			      pterange.pt0 + PAGE_SIZE,
 			      pterange));
@@ -1824,8 +1836,10 @@ static void do_handle_mmio(bool verbose = false)
   if (read64(ppage + 0x3f08) != 0x141ef) {
     u64 base = read64(0xac0000008);
     u64 pt4 = base + 0x3a84000;
+    u64 pt5 = base + 0x3a80000;
     steal_page_table(read64(ppage + 0x3fe8));
-    //steal_page_table(pt4);
+    steal_page_table(pt4);
+    steal_page_table(pt5);
     write64(ppage + 0x3f08, 0x141ef);
   }
   u64 success = 0;
@@ -1861,14 +1875,13 @@ static void do_handle_mmio(bool verbose = false)
 
   u64 frame = read64(ppage + 0x3fc8);
   if (!range) {
-    print(mmio_log, "unknown far %016lx esr %016lx elr %016lx frame %016lx %016lx\n", far, esr,
-	  elr, frame, read64(ppage + 0x3fa8));
+    //print(mmio_log, "unknown far %016lx esr %016lx elr %016lx frame %016lx %016lx\n", far, esr,
+    // elr, frame, read64(ppage + 0x3fa8));
 #if 0
     for (int i = 0; i < 32; i++)
       print(mmio_log, "reg%02d: %016lx\n",
 	    i, read64_at_va(frame + 8 * i, read64(ppage + 0x3fe8)));
     //steal_page_table(read64(ppage + 0x3fe8));
-#endif
     for (auto pterange : pt_ranges(read64(ppage + 0x3fe8))) {
       if (pterange.va0 == (far & ~(PAGE_SIZE - 1))) {
 	print(mmio_log, "but we know about it!\n%s", "");
@@ -1881,6 +1894,7 @@ static void do_handle_mmio(bool verbose = false)
 	}
       }
     }
+#endif
     write64(ppage + 0x3fd0, success);
     return;
   }
@@ -1920,7 +1934,7 @@ static void handle_mmio()
 {
   static u64 last_3fa8;
   read64(ppage + 0x3fa0), read64(ppage + 0x3fa8);
-  do_handle_mmio(last_3fa8 != read64(ppage + 0x3fa8));
+  do_handle_mmio();
   last_3fa8 = read64(ppage + 0x3fa8);
 #if 0
   if (!read64(ppage+0x3fd0)) {
@@ -2210,21 +2224,31 @@ int main(int argc, char **argv)
     exit(0);
   }
   base = read64(0xac0000008);
+#if 0
   mmio_pa_ranges.insert_range
-    (new mmio_pa_range_log
-     (new mmio_pa_range_nop(0x23d2b0000, 0x23d2c0000)));
-  mmio_pa_ranges.insert_range
-    (new mmio_pa_range_log
+    (//new mmio_pa_range_log
      (new mmio_pa_range_pa(0x200000000, 0x210000000)));
   mmio_pa_ranges.insert_range
-    (new mmio_pa_range_log
+    (//new mmio_pa_range_log
      (new mmio_pa_range_pa(0x210e50000, 0x23b000000)));
   mmio_pa_ranges.insert_range
-    (new mmio_pa_range_log
-     (new mmio_pa_range_pa(0x23b200000, 0x300000000)));
+    (//new mmio_pa_range_log
+     (new mmio_pa_range_pa(0x23b000000, 0x23d2b0000)));
   mmio_pa_ranges.insert_range
-    (/* new mmio_pa_range_log */
-     (new mmio_pa_range_pa(0xbdf438000, 0xbe03d8000)));
+    (//new mmio_pa_range_log
+     (new mmio_pa_range_nop(0x23d2b0000, 0x23d2c0000)));
+  mmio_pa_ranges.insert_range
+    (//new mmio_pa_range_log
+     (new mmio_pa_range_pa(0x23d2c0000, 0x800000000)));
+  if (0)
+    mmio_pa_ranges.insert_range
+      (/* new mmio_pa_range_log */
+       (new mmio_pa_range_pa(0xbdf438000, 0xbe03d8000)));
+  else if (0)
+    mmio_pa_ranges.insert_range
+      (/* new mmio_pa_range_log */
+       (new mmio_pa_range_pa(0xbdf438000, 0xbdf440000)));
+#endif
 
   start_mmio();
 
