@@ -102,8 +102,10 @@ static void *thread_routine(void *offset_v)
       struct timeval timeout = { 0, };
       if (select(pfd[2] + 1, &readfds, NULL, NULL, &timeout)) {
 	page[3] = read(pfd[2], (void *)(page + 1024), 8192);
+	if (page[3] == 0)
+	  close(pfd[2]);
       } else {
-	page[3] = read(pfd[2], (void *)(page + 1024), 8192);
+	page[3] = 0;
       }
       break;
     }
