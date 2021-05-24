@@ -4,12 +4,18 @@ struct commpage {
   unsigned long code[0x3000/8];
   unsigned long mmio_master; /* 0x3e00 */
   unsigned long mmio_ttbr; /* 0x3e08 */
+  unsigned long boot_master; /* 0x3e88 */
   unsigned long pt_wait_flag; /* 0x3f00 */
+  unsigned long pt_stolen_flag; /* 0x3f08 */
+  unsigned long mmio_self_ptr; /* 0x3fa0 */
+  unsigned long mmio_offset; /* 0x3fa8 */
   unsigned long mmio_reg_ptr; /* 0x3fb0 */
   unsigned long mmio_read_va; /* 0x3fb8 */
+  unsigned long mmio_frame; /* 0x3fc8 */
   unsigned long mmio_success; /* 0x3fd0 */
-  unsigned long mmio_ttbr1; /* 0x3fe0 */
-  unsigned long mmio_ttbr2; /* 0x3fe8 */
+  unsigned long mmio_esr; /* 0x3fd8 */
+  unsigned long mmio_ttbr0; /* 0x3fe0 */
+  unsigned long mmio_ttbr1; /* 0x3fe8 */
   unsigned long mmio_far; /* 0x3ff0 */
   unsigned long mmio_elr; /* 0x3ff8 */
 };
@@ -66,24 +72,49 @@ static void *remapped_addr(unsigned long off)
   return &dummy;
 }
 
+volatile int global_sigbus_flag;
+
 static inline u64 read64(unsigned long off)
 {
-  return *(volatile long *)remapped_addr(off);
+  global_sigbus_flag = 0;
+  u64 ret = *(volatile long *)remapped_addr(off);
+  if (global_sigbus_flag) {
+    fprintf(stderr, "received SIGBUS for off %016lx\n", off);
+    ret = 0;
+  }
+  asm volatile("isb");
+  asm volatile("dmb sy");
+  asm volatile("dsb sy");
+  return ret;
 }
 
 static inline void write64(unsigned long off, u64 val)
 {
+  //printf("write64 %016lx <- %016lx\n", off, val);
+  global_sigbus_flag = 0;
   *(volatile long *)remapped_addr(off) = val;
+  if (global_sigbus_flag) {
+    fprintf(stderr, "received SIGBUS for off %016lx\n", off);
+  }
 }
 
 static inline u32 read32(unsigned long off)
 {
-  return *(volatile unsigned*)remapped_addr(off);
+  global_sigbus_flag = 0;
+  u32 ret = *(volatile unsigned*)remapped_addr(off);
+  if (global_sigbus_flag) {
+    fprintf(stderr, "received SIGBUS for off %016lx\n", off);
+  }
+  return ret;
 }
 
 static inline void write32(unsigned long off, u32 val)
 {
+  global_sigbus_flag = 0;
   *(volatile unsigned *)remapped_addr(off) = val;
+  if (global_sigbus_flag) {
+    fprintf(stderr, "received SIGBUS for off %016lx\n", off);
+  }
 }
 
 unsigned long alloc_page(void)
@@ -94,7 +125,7 @@ unsigned long alloc_page(void)
 }
 
 unsigned long install_page(unsigned long va, unsigned long pa, int typeidx,
-			    unsigned long level0)
+			   unsigned long level0)
 {
   unsigned long off0 = (va >> (14 + 11 + 11)) & 2047;
   unsigned long off1 = (va >> (14 + 11)) & 2047;
@@ -106,6 +137,9 @@ unsigned long install_page(unsigned long va, unsigned long pa, int typeidx,
     write64(level0 + off0 * 8, alloc_page() | 3);
     goto again;
   }
+  fprintf(stderr, "using %016lx at %016lx\n",
+	  read64(level0 + off0 * 8),
+	  level0 + off0 * 8);
   unsigned long level1 = read64(level0 + off0 * 8) & 0xfffffff000;
   if (!(read64(level1 + off1 * 8) & 1)) {
     write64(level1 + off1 * 8, alloc_page() | 3);
@@ -114,9 +148,15 @@ unsigned long install_page(unsigned long va, unsigned long pa, int typeidx,
   unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
   unsigned long types[] = {
     0x0060000000000603,
-    0x0040000000000683,
+    0x0040000000000683, /* executable. testing. nope.  */
     0x006000000000040f,
     0x046000000000040f,
+    0x0050000000000683, /* executable (?) doesn't work */
+    0x0020000000000603,
+    0x0000000000000603, /* testing. */
+    0x006000000000040f, /* testing. Doesn't work. */
+    0x0060000000000607,
+    0x0460000000000603, /* testing. Doesn't work. */
   };
   write64(level2 + off2 * 8, pa | (types[typeidx]));
 
@@ -126,6 +166,11 @@ unsigned long install_page(unsigned long va, unsigned long pa, int typeidx,
 unsigned long offs_to_va(unsigned long off0, unsigned long off1, unsigned long off2)
 {
   return 0xffff000000000000 + (off0 << (14 + 11 + 11)) + (off1 << (14 + 11)) + (off2 << 14);
+}
+
+unsigned long offs_to_va2(unsigned long off0, unsigned long off1, unsigned long off2, int high)
+{
+  return (high ? 0xffff800000000000 : 0) + (off0 << (14 + 11 + 11)) + (off1 << (14 + 11)) + (off2 << 14);
 }
 
 unsigned long va_to_pa(unsigned long va, unsigned long level0)
@@ -189,14 +234,26 @@ unsigned read32_at_va(unsigned long va, unsigned long level0)
   unsigned long off1 = (va >> (14 + 11)) & 2047;
   unsigned long off2 = (va >> (14)) & 2047;
 
-  if (!(read64(level0 + off0 * 8) & 1))
+  if (!(read64(level0 + off0 * 8) & 1)) {
+    fprintf(stderr, "no level0!\n");
     return 0;
+  } else {
+    //fprintf(stderr, "level0 %016lx!\n", read64(level0 + off0 * 8));
+  }
   unsigned long level1 = read64(level0 + off0 * 8) & 0xfffffff000;
-  if (!(read64(level1 + off1 * 8) & 1))
+  if (!(read64(level1 + off1 * 8) & 1)) {
+    fprintf(stderr, "no level1!\n");
     return 0;
+  } else {
+    //fprintf(stderr, "level1 %016lx!\n", read64(level1 + off1 * 8));
+  }
   unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
-  if (!(read64(level2 + off2 * 8) & 1))
+  if (!(read64(level2 + off2 * 8) & 1)) {
+    fprintf(stderr, "no level2!\n");
     return 0;
+  } else {
+    //fprintf(stderr, "level2 %016lx!\n", read64(level2 + off2 * 8));
+  }
   unsigned long level3 = read64(level2 + off2 * 8) & 0xfffffff000;
   return read32(level3 + (va & 0x3ffc));
 }
@@ -225,24 +282,25 @@ u64 read64_at_va(unsigned long va, unsigned long level0)
   return read64(level3 + (va & 0x3ff8));
 }
 
-void write64_to_va(unsigned long va, u64 val, unsigned long level0)
+bool write64_to_va(unsigned long va, u64 val, unsigned long level0)
 {
   if ((va & 0xffff000000000000) != 0xffff000000000000)
-    return;
+    return false;
   unsigned long off0 = (va >> (14 + 11 + 11)) & 2047;
   unsigned long off1 = (va >> (14 + 11)) & 2047;
   unsigned long off2 = (va >> (14)) & 2047;
 
   if (!(read64(level0 + off0 * 8) & 1))
-    return;
+    return false;
   unsigned long level1 = read64(level0 + off0 * 8) & 0xfffffff000;
   if (!(read64(level1 + off1 * 8) & 1))
-    return;
+    return false;
   unsigned long level2 = read64(level1 + off1 * 8) & 0xfffffff000;
   if (!(read64(level2 + off2 * 8) & 1))
-    return;
+    return false;
   unsigned long level3 = read64(level2 + off2 * 8) & 0xfffffff000;
   write64(level3 + (va & 0x3ff8), val);
+  return true;
 }
 
 struct stackframe {
@@ -257,6 +315,9 @@ u64 read_reg(unsigned long frame, unsigned long index, unsigned long ttb)
 void write_reg(unsigned long frame, unsigned long index, u64 val,
 	       unsigned long ttb)
 {
-  write64_to_va(frame + 8 * index, val, ttb);
+  if (!write64_to_va(frame + 8 * index, val, ttb))
+    abort();
 }
+
+#define PAGE_RW 0 /* not 0, 6 */
 
