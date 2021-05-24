@@ -138,6 +138,8 @@ bool simulate_insn(unsigned long frame, unsigned insn,
   return true;
 }
 
+#define MAGIC_WORD 0x140008b6b5fffff8
+
 int main(int argc, char **argv)
 {
   unsigned long base = read64(0xac0000008);
@@ -145,8 +147,8 @@ int main(int argc, char **argv)
   if (!log)
     log = stdout;
   if (argv[1] && strcmp(argv[1], "clear") == 0) {
+    bool success;
     unsigned long addrs[] = {
-      base + (0x8097cc000 - 0x804dd0000),
       base + 0x3e70000 + (0x8097cc000 - 0x804dd0000),
       base + 0x3e74000 + (0x8097cc000 - 0x804dd0000),
       argv[2] ? strtoll(argv[2], NULL, 0) : 0,
@@ -154,20 +156,28 @@ int main(int argc, char **argv)
     unsigned long addr;
     for (int i = 0; i < ARRAYELTS(addrs); i++) {
       addr = addrs[i];
-      if (addr && read64(addr) == 0x14000770d10303ff) {
+      if (addr && read64(addr) == MAGIC_WORD) {
 	write64(addr, 0);
+	//fprintf(stderr, "VA %016lx\n", read64(addr + 8));
 	exit(0);
       }
     }
+    if (!success)
     for (unsigned long offset = 0x800000000; offset < 0x900000000; offset += 16384) {
-      if (read64(offset) == 0x14000770d10303ff) {
+      if (read64(offset) == MAGIC_WORD) {
 	fprintf(stderr, "candidate %016lx at %016lx\n", read64(offset),
 		  offset);
 	addr = offset;
-	write64(addr, 0);
-	exit(0);
+	fprintf(stderr, "PA %016lx VA %016lx\n", addr, read64(addr + 8));
+	write64(offset, 0);
+	success = true;
       }
     }
+    if (success) {
+      fprintf(stderr, "successfully cleared.\n");
+      exit(0);
+    }
+    fprintf(stderr, "no candidate found!\n");
     exit(1);
   }
   asm volatile("isb");
@@ -185,12 +195,12 @@ int main(int argc, char **argv)
       for (int i = 0; i < ARRAYELTS(addrs); i++) {
 	addr = addrs[i];
 	if (addr)
-	  if ((count = read64(addr)) == 0x14000770d10303ff)
+	  if ((count = read64(addr)) == MAGIC_WORD)
 	    goto found;
       }
       sched_yield();
       for (unsigned long offset = 0x800000000; offset < 0x900000000; offset += 16384) {
-	if (read64(offset) == 0x14000770d10303ff) {
+	if (read64(offset) == MAGIC_WORD) {
 	  fprintf(stderr, "candidate %016lx at %016lx\n", read64(offset),
 		  offset);
 	  addr = offset;
