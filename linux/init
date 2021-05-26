@@ -1,11 +1,11 @@
 #!/bin/sh
 mkdir /mnt
-/bin/busybox mount -t proc proc /proc
-/bin/busybox mount -t sysfs sys /sys
-/bin/busybox mount -t devtmpfs dev /dev
-/bin/busybox mount /dev/nvme0n1p4 /mnt
+mount -t proc proc /proc
+mount -t sysfs sys /sys
+mount -t devtmpfs dev /dev
+mount /dev/nvme0n1p4 /mnt
 cp modules/*.ko /mnt
-/bin/busybox sync
+sync
 while sleep 1; do cat /sys/class/power_supply/smc_battery/energy_now; done &
 /bin/sh
-exec /bin/busybox switch_root /mnt /sbin/init
+exec switch_root /mnt /sbin/init
