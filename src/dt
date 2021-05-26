@@ -80,6 +80,14 @@ sub new {
 	}
     }
 
+    if ($unit eq "string") {
+	if ($values[0] =~ /^\"(.*)\"$/) {
+	    @values = map { ord($_) } split("", $1);
+	    $unit = "u8";
+	}
+    }
+
+
     if ($unit eq "be32") {
 	@values = unpack("C*", pack("L>*", @values));
 	$unit = "u8";
@@ -256,11 +264,8 @@ sub new_from_fusemap {
 	    die;
 	}
 
-	warn $value;
 	$value >>= $src_lsb;
-	warn $value;
 	$value &= (1 << $src_width) - 1;
-	warn $value;
 	$mask = (1 << $dst_width) - 1;
 	$mask <<= $dst_lsb;
 	$value <<= $dst_lsb;
@@ -382,7 +387,8 @@ sub tunable {
 	}
 	if ($adtnode eq $anode) {
 	    $props{abuf} = $adt{$anode};
-	} elsif ($adtparent eq $anode) {
+	}
+	if ($adtparent eq $anode) {
 	    $props{aparent} = $adt{$anode};
 	}
     }
@@ -399,8 +405,6 @@ sub tunable {
 	$tunables{$adtnode} = DTNode->new("u8", @{$tunables{$adtnode}})->string;
     }
     $ltunables{$props{lnode} . "." . $dtprop} = $tunables{$adtnode} if $props{lnode};
-
-    return join("\n", sort keys %ltunables);
 }
 
 sub setup_tunables {
@@ -666,7 +670,6 @@ sub tunables {
     my ($adtp, $ldtp) = @_;
     my $out = "";
 
-    my %adt;
     for (split "\n", $adtp) {
 	my ($prop, $pval);
 	my @pbuf;
@@ -676,10 +679,12 @@ sub tunables {
 	    $prop =~ s/^adt\.device-tree\.//;
 	    $adt{$prop} = DTNode->new("str-le32", $pval) if $pval =~ /^<(.*)>$/;
 	    $adt{$prop} = DTNode->new("str-le8", $pval) if $pval =~ /^\[(.*)\]$/;
+	    $adt{$prop} = DTNode->new("string", $pval) if $pval =~ /^\"(.*)\"$/;
+	    die $pval unless $adt{$prop};
+	    warn ($prop . " " . $adt{$prop});
 	}
     }
 
-    my %ldt;
     for (split "\n", $ldtp) {
 	my ($prop, $pval);
 	my @pbuf;
@@ -690,6 +695,16 @@ sub tunables {
 	    $dt{$prop} = DTNode->new("str-le8", $pval) if $pval =~ /^\[(.*)\]$/;
 	}
     }
+
+    setup_tunables();
+
+    my $ret = "";
+    for my $key (sort keys %ltunables) {
+	next if $ltunables{$key} eq "<>";
+	$ret .= ("$key = " . $ltunables{$key} . "\n");
+    }
+
+    return $ret;
 }
 
 sub usage {
@@ -807,13 +822,33 @@ sub dts_to_dtb {
     return $dtb;
 }
 
+sub dtb_to_dts {
+    my $dts = "";
+    my $dtb = shift;
+    run(["dtc", "-Idtb", "-Odts"], \$dtb, \$dts) or die;
+
+    return $dts;
+}
+
+sub dtb_to_dtp {
+    return dts_to_dtp(dtb_to_dts($_[0]));
+}
+
+sub adt_to_dtp {
+    my $adt = shift;
+    my $dtp = "";
+    my $stdin = "";
+    run(["adtp", "/dev/stdin"], \$adt, \$dtp) or die;
+    return $dtp;
+}
+
 my $stdin = "";
 if ($ARGV[0] eq "--help") {
     usage();
     exit(1);
 } elsif ($ARGV[0] eq "adt-to-dtp") {
-    my $dtp = "";
-    run(["adtp", $ARGV[1]], \$stdin, \$dtp) or die;
+    my $adt = read_file($ARGV[1]);
+    my $dtp = adt_to_dtp($adt);
     write_file($ARGV[2], $dtp) or die;
 } elsif ($ARGV[0] eq "dtb-to-dtp") {
     my $dts = "";
@@ -834,14 +869,24 @@ if ($ARGV[0] eq "--help") {
     my $dtb = dts_to_dtb($dts);
     write_file($ARGV[2], $dtb) or die;
 } elsif ($ARGV[0] eq "tunables") {
-    my $adtp = read_file($ARGV[1]);
-    my $ldtp = read_file($ARGV[2]);
+    my $adt = read_file($ARGV[1]);
+    my $ldt = read_file($ARGV[2]);
+    my $adtp = adt_to_dtp($adt);
+    my $ldtp = dtb_to_dtp($ldt);
     my $odtp = tunables($adtp, $ldtp);
     write_file($ARGV[3], $odtp) or die;
 } elsif ($ARGV[0] eq "extract-adt") {
     my $adt = "";
     run(["adtdump"], \$stdin, \$adt) or die;
     write_file($ARGV[1], $adt) or die;
+} elsif ($ARGV[0] eq "extract-bootargs") {
+    my $dtp = read_file($ARGV[1]);
+    my $bootargs = "";
+    for (split("\n", $dtp)) {
+	/^reserved-memory\./ && ($bootargs .= "$_\n");
+	/^framebuffer[@.]/ && ($bootargs .= "$_\n");
+    }
+    write_file($ARGV[2], $bootargs) or die;
 } else {
     usage();
     exit(1);
