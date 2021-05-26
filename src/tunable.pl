@@ -10,7 +10,7 @@ sub string {
     my ($self) = @_;
     my @ret;
     if (scalar($self->bytes) % 4) {
-	return "<<" . join(" ", map { sprintf("0x%02x", $_) } $self->bytes) . ">>";
+	return "[" . join(" ", map { sprintf("%02x", $_) } $self->bytes) . "]";
     }
     for my $le32 ($self->le32) {
 	push @ret, $le32;
@@ -72,6 +72,13 @@ sub new {
 	    $ret->{le} = 0;
 	} elsif ($values[0] =~ /^\"(.*)\"$/) {
 	    @values = map { ord($_) } split("", $1);
+	    $unit = "u8";
+	}
+    }
+
+    if ($unit eq "str-le8") {
+	if ($values[0] =~ /^\[(.*)\]$/) {
+	    @values = map { hex($_) } split(" ", $1);
 	    $unit = "u8";
 	}
     }
@@ -338,7 +345,8 @@ while (<$fh>) {
     if (/^(.*?) = (.*)$/) {
 	($prop, $pval) = ($1, $2);
 	$prop =~ s/^adt\.device-tree\.//;
-	$adt{$prop} = DTNode->new("str-le32", $pval);
+	$adt{$prop} = DTNode->new("str-le32", $pval) if $pval =~ /^<(.*)>$/;
+	$adt{$prop} = DTNode->new("str-le8", $pval) if $pval =~ /^\[(.*)\]$/;
     }
 }
 
@@ -351,7 +359,8 @@ while (<$fh>) {
     chomp;
     if (/^(.*?) = (.*)$/) {
 	($prop, $pval) = ($1, $2);
-	$dt{$prop} = DTNode->new("str-be32", $pval);
+	$dt{$prop} = DTNode->new("str-be32", $pval) if $pval =~ /^<(.*)>$/;
+	$dt{$prop} = DTNode->new("str-le8", $pval) if $pval =~ /^\[(.*)\]$/;
     }
 }
 
