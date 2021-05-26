@@ -6,27 +6,25 @@ mount -t configfs configfs sys/kernel/config
 tar xzvf /perl.tar.gz
 tar xvf /m1lli-scripts.tar
 
-dtc -I dtb -O dts /sys/firmware/fdt > /fdt.dts # XXX do this in advance
-perl /fdt-to-props.pl /fdt.dts | grep 'reserved-memory' > /new-reserved-memory # XXX ditto
-dtc -I dtb -O dts /boot/fdt > /boot/fdt.dts
-(cat /new-reserved-memory; perl /fdt-to-props.pl /boot/fdt.dts | grep -v 'reserved-memory') | perl props-to-fdt.pl > /boot/fdt.dts.new && /bin/busybox mv /boot/fdt.dts.new /boot/fdt.dts && dtc -I dts -O dtb /boot/fdt.dts > /boot/fdt
-ls -l /boot/fdt
-# cat /sys/firmware/devicetree/base/adt/contents | /adt2fdt
-# perl /copy-fdt-props.pl
+dt dtb-to-dtp /sys/firmware/fdt /boot/fdt.dtb.dtp
+dt extract-bootargs /boot/fdt.dtb.dtp /boot/bootargs.dtp
+dt extract-adt /boot/adt
+dt tunables /boot/adt /boot/stage2.dtb /boot/tunables.dtp
+dt dtb-to-dtp /boot/stage2.dtb /boot/fixed.dtp
+cat /boot/fixed.dtp /boot/tunables.dtp /boot/bootargs.dtp > /boot/next-stage.dtp
+dt dtp-to-dtb /boot/next-stage.dtp /boot/next-stage.dtb
 
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=7 seek=72 conv=notrunc
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=6 seek=73 conv=notrunc
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=5 seek=74 conv=notrunc
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=4 seek=75 conv=notrunc
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=3 seek=76 conv=notrunc
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=2 seek=77 conv=notrunc
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=1 seek=78 conv=notrunc
-/bin/busybox dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=0 seek=79 conv=notrunc
+dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=7 seek=72 conv=notrunc
+dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=6 seek=73 conv=notrunc
+dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=5 seek=74 conv=notrunc
+dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=4 seek=75 conv=notrunc
+dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=3 seek=76 conv=notrunc
+dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=2 seek=77 conv=notrunc
+dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=1 seek=78 conv=notrunc
+dd if=/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg bs=1 count=1 of=/m1n1.macho.image skip=0 seek=79 conv=notrunc
 
 # /bin/kexec -fix /m1n1.macho.image --dtb=/boot/fdt
 # /bin/kexec -fix /m1n1.macho.image --dtb=/sys/firmware/fdt
 
-/bin/kexec -fix /boot/Image --dtb=/boot/fdt
-/bin/kexec -fix /Image --dtb=/boot/fdt
-/bin/kexec -fix /boot/Image --dtb=/sys/firmware/fdt
-/bin/kexec -fix /Image --dtb=/sys/firmware/fdt
+/bin/kexec -fix /boot/Image --dtb=/boot/next-stage.dtb
+/bin/kexec -fix /Image --dtb=/boot/next-stage.dtb
