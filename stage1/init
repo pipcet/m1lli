@@ -5,6 +5,7 @@ mount -t sysfs sys sys
 mount -t configfs configfs sys/kernel/config
 tar xzvf /perl.tar.gz
 tar xvf /m1lli-scripts.tar
+cp /dt /bin
 
 dt dtb-to-dtp /sys/firmware/fdt /boot/fdt.dtb.dtp
 dt extract-bootargs /boot/fdt.dtb.dtp /boot/bootargs.dtp
