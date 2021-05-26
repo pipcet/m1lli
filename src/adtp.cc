@@ -52,6 +52,38 @@ static void dump_escaped_char(uint8_t ch)
     printf("\\x%02x", ch);
 }
 
+class uint8_le_t {
+public:
+  uint8_t data[1];
+
+  operator size_t() {
+    return data[0];
+  }
+
+  static const bool do_dump_as_string = false;
+
+  void dump_as_js()
+  {
+    printf("%02lx", (unsigned long)size_t(*this) & 0xff);
+  }
+
+  void dump_as_js_comment()
+  {
+    printf("/* ");
+    for (auto ch : data)
+      dump_escaped_char(ch);
+    printf(" */");
+  }
+
+  void dump_as_js_string()
+  {
+    printf("\"");
+    for (auto ch : data)
+      dump_escaped_char(ch);
+    printf("\"");
+  }
+} PACKED;
+
 class uint32_le_t {
 public:
   uint8_t data[4];
@@ -377,13 +409,15 @@ public:
 
   virtual void dump_rawdata_as_js(std::string prefix)
   {
-      std::cout << prefix << "." << data.name.val() << " = <";
+    std::string lbr = (sizeof(T) == 4) ? "<" : "[";
+    std::string rbr = (sizeof(T) == 4) ? ">" : "]";
+    std::cout << prefix << "." << data.name.val() << " = " << lbr;
     for (size_t i = 0; i < rawdata.size(); i += sizeof(T)) {
       if (i)
 	std::cout << " ";
       vec[i/sizeof(T)].dump_as_js();
     }
-    std::cout << ">\n";
+    std::cout << rbr << "\n";
   }
 
   virtual void dump_prop()
@@ -493,6 +527,7 @@ ADTProp *ADTProp::parse()
 {
   if (rawdata.size() % 4 == 0)
     return new ADTClassArrayProp<uint32_le_t>(*this);
+  return new ADTClassArrayProp<uint8_le_t>(*this);
   return new ADTStringsProp(*this);
 }
 
