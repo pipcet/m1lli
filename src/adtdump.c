@@ -7,7 +7,7 @@
 
 int main(int argc, char **argv)
 {
-  int fd = open("/sys/firmware/devicetree/base/reserved-memory/adt/reg",
+  int fd = open("/sys/firmware/devicetree/base/reserved-memory/adt@800000000/reg",
 		O_RDONLY);
   uint64_t reg[2];
   if (fd < 0 || read(fd, reg, 16) != 16)
