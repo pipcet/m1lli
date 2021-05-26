@@ -5,7 +5,7 @@ mount -t sysfs sys sys
 mount -t configfs configfs sys/kernel/config
 tar xzvf /perl.tar.gz
 tar xvf /m1lli-scripts.tar
-perl /copy-fdt-props.pl
+cp /dt /bin
 cat /proc/devices | while read NUM NAME; do if [ "$NAME" = "ttyGS" ]; then mknod /dev/ttyGS0 c $NUM 0; fi; done
 mkdir /sys/kernel/config/usb_gadget/G1
 echo 0x2 > /sys/kernel/config/usb_gadget/G1/bDeviceClass
