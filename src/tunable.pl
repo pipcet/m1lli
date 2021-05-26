@@ -217,24 +217,38 @@ sub new_from_plain {
 
 sub do_read32 {
     my $addr = shift;
+    my %fake;
+    $fake{hex "23d2bc438"} = 0xd9336420;
+    $fake{hex "23d2bc43c"} = 0x0000000a;
+    $fake{hex "23d2bc418"} = 0x38488000;
+    $fake{hex "23d2bc41c"} = 0x0a86874f;
+    $fake{hex "23d2bc084"} = 0x00025600;
+    return $fake{+$addr} if exists $fake{+$addr};
     my $val = `memtool md $addr+4`;
     chomp $val;
-    return hex $val;
+    /^[0-9a-f]*: ([0-9a-f]*) / && return hex $1;
 }
 
 sub new_from_fusemap {
     my ($class, %h) = @_;
     my $map = $h{map};
+    my $ret = bless {}, $class;
+    my $base = $h{base};
     for my $row (@$map) {
+	my $value;
+	my $mask;
 	my ($src_addr, $dst_offs, $src_lsb, $src_width, $dst_lsb, $dst_width) = @$row;
 	if ($h{doread}) {
 	    $value = do_read32($src_addr);
 	} else {
-	    $value = 0;
+	    die;
 	}
 
+	warn $value;
 	$value >>= $src_lsb;
+	warn $value;
 	$value &= (1 << $src_width) - 1;
+	warn $value;
 	$mask = (1 << $dst_width) - 1;
 	$mask <<= $dst_lsb;
 	$value <<= $dst_lsb;
@@ -246,6 +260,8 @@ sub new_from_fusemap {
 	    value => $value,
 	    );
     }
+
+    return $ret;
 }
 
 sub new_from_pcie {
@@ -288,75 +304,6 @@ sub encode_to_fancy {
 
 package main;
 
-
-sub write_tunable_item {
-    my ($lregs, $addr, $mask, $val) = @_;
-    my $index = 0;
-    warn $lregs->bytes;
-    for my $lreg ($lregs->ranges) {
-	warn "range " . sprintf("%x+%x", @$lreg);
-	$index++;
-	next unless $addr >= $lreg->[0];
-	next unless $addr < $lreg->[0] + $lreg->[1];
-	return [($addr - $lreg->[0]) | ($index << 28), $mask, $val];
-    }
-
-    die "couldn't find reg for " . sprintf("%x", $addr);
-}
-
-sub rebuild_fancy_tunable {
-    my ($abuf, $areg, $lreg) = @_;
-    my @areg = $areg->ranges;
-    my $lbuf = [];
-    my @abuf = $abuf->le32;
-    for (my $ai = 0; $ai < @abuf; $ai++) {
-	my $offs = $abuf[$ai];
-	my $size = $offs >> 24;
-	$offs &= 0xffffff;
-	if ($size == 255) {
-	    $ai += 2;
-	    next;
-	}
-	if ($size == 0 || $size == 32) {
-	    my $mask = $abuf[$ai + 1];
-	    my $val = $abuf[$ai + 2];
-	    push @$lbuf, @{write_tunable_item($lreg, $areg[0][0] + $offs, $mask, $val)};
-	    $ai += 2;
-	}
-    }
-
-    return $lbuf;
-}
-
-# static unsigned write_tunable_item(uint32_t *lbuf, uint64_t addr, uint32_t mask, uint32_t val, uint64_t *lreg, unsigned lnreg, const char *ldtnname)
-sub rebuild_legacy_tunable {
-    my ($abuf, $areg, $lreg) = @_;
-    my $lbuf = [];
-    for (my $ai = 0; $ai < @$abuf; $ai += 4) {
-	my $range_id = $abuf->[$ai];
-	my $offs = $abuf->[$ai + 1];
-	my $mask = $abuf->[$ai + 2];
-	my $val = $abuf->[$ai + 3];
-	push @$lbuf, @{write_tunable_item($lreg, $areg->[$range_id * 2] + $offs, $mask, $val)};
-    }
-
-    return $lbuf;
-}
-
-sub rebuild_pcie_tunable {
-    my ($abuf, $areg, $lreg) = @_;
-    my $lbuf = [];
-    for (my $ai = 0; $ai < @$abuf; $ai += 6) {
-	my $size = $abuf->[$ai + 1];
-	my $offs = $abuf->[$ai];
-	my $mask = $abuf->[$ai + 2];
-	my $val = $abuf->[$ai + 4];
-	push @$lbuf, @{write_tunable_item($lreg, $areg->[0] + $offs, $mask, $val)};
-    }
-
-    return $lbuf;
-}
-
 sub buf_to_bytes {
     my ($buf) = @_;
     my @res;
@@ -381,24 +328,6 @@ sub bytes_to_buf {
     return @res;
 }
 
-sub rebuild_plain_tunable {
-    my ($abuf, $areg, $lreg) = @_;
-    my @abytes = buf_to_bytes($abuf);
-    my @lbytes;
-    my $l2size = $areg->[0] & 3;
-    my $size = (1 << $l2size);
-    my $bytes = @$abuf;
-    $bytes &= -$size;
-    my $xor = $size - 1;
-    for my $i (0 .. $bytes) {
-	$lbytes[$i^$xor] = $abytes[$i];
-    }
-    my @lbuf = bytes_to_buf(@lbytes);
-
-    return \@lbuf;
-}
-
-
 my %adt;
 my $fh;
 open $fh, "./m1lli/scripts/adtp adt|" or die;
@@ -412,6 +341,7 @@ while (<$fh>) {
 	$adt{$prop} = DTNode->new("str-le32", $pval);
     }
 }
+
 my %dt;
 my $fh;
 open $fh, "./dt/m1.dtb.dts.dtp" or die;
@@ -427,6 +357,36 @@ while (<$fh>) {
 
 my %tunables;
 my %ltunables;
+
+my $pcie_fuse_map = [
+    # /* src_addr, dst_offs, src_[lsb,width], dst_[lsb,width] */
+    [ 0x23d2bc084, 0x6238,  4, 6,  0, 7 ],
+    [ 0x23d2bc084, 0x6220, 10, 3, 14, 3 ],
+    [ 0x23d2bc084, 0x62a4, 13, 2, 17, 2 ],
+    [ 0x23d2bc418, 0x522c, 27, 2,  9, 2 ],
+    [ 0x23d2bc418, 0x522c, 13, 3, 12, 3 ],
+    [ 0x23d2bc418, 0x5220, 18, 3, 14, 3 ],
+    [ 0x23d2bc418, 0x52a4, 21, 2, 17, 2 ],
+    [ 0x23d2bc418, 0x522c, 23, 5, 16, 5 ],
+    [ 0x23d2bc418, 0x5278, 23, 3, 20, 3 ],
+    [ 0x23d2bc418, 0x5018, 31, 1,  2, 1 ],
+    [ 0x23d2bc41c, 0x1204,  0, 5,  2, 5 ],
+    ];
+
+my $acio_fuse_map = [
+    # /* src_addr, dst_offs, src_[lsb,width], dst_[lsb,width] */
+    [ 0x23d2bc438, 0x2a38, 19, 6,  0, 7 ],
+    [ 0x23d2bc438, 0x2a38, 25, 6, 17, 7 ],
+    [ 0x23d2bc438, 0x2aa4, 31, 1, 17, 2 ],
+    [ 0x23d2bc438, 0x0a04, 14, 5,  2, 5 ],
+    [ 0x23d2bc43c, 0x2aa4,  0, 1, 17, 2 ],
+    [ 0x23d2bc43c, 0x2a20,  1, 3, 14, 3 ],
+    [ 0x23d2bc438, 0x222c,  7, 2,  9, 2 ],
+    [ 0x23d2bc438, 0x222c,  4, 3, 12, 3 ],
+    [ 0x23d2bc438, 0x22a4, 12, 2, 17, 2 ],
+    [ 0x23d2bc438, 0x2220,  9, 3, 14, 3 ],
+    [ 0x23d2bc438, 0x0a04, 14, 5,  2, 5 ],
+    ];
 
 sub tunable {
     my ($adtnode, $dtnode, $kind, %props) = @_;
@@ -450,12 +410,16 @@ sub tunable {
 	$ldev =~ s/\.[^.]*$//;
 	$props{lnode} = $ldev if $rawdev eq $dtdev;
     }
-    return unless $props{lnode};
+    unless ($props{lnode}) {
+	warn "no lnode for $adtnode";
+	return;
+    }
 
     for my $anode (sort keys %adt) {
 	if ($adtreg eq $anode) {
 	    $props{areg} = $adt{$anode};
-	} elsif ($adtnode eq $anode) {
+	}
+	if ($adtnode eq $anode) {
 	    $props{abuf} = $adt{$anode};
 	} elsif ($adtparent eq $anode) {
 	    $props{aparent} = $adt{$anode};
@@ -463,6 +427,7 @@ sub tunable {
     }
 
     unless (exists $props{abuf}) {
+	warn "no abuf for $adtnode";
 	return;
     }
     my $new = "new_from_$kind";
@@ -479,143 +444,143 @@ for my $v ([0, 0x380000000], [1, 0x500000000]) {
     my $i = $v->[0];
     my $base = $v->[1];
 
-    tunable("arm-io.atc-phy$i.tunable_ATC0AXI2AF",
-	    "soc.usb_drd$i.tunable-ATC0AXI2AF",
+    tunable("arm-io.atc-phy${i}.tunable_ATC0AXI2AF",
+	    "soc.usb_drd${i}.tunable-ATC0AXI2AF",
 	    fancy => base => $base);
-    tunable("arm-io.usb-drd$i.tunable",
-	    "soc.usb_drd$i.tunable",
+    tunable("arm-io.usb-drd${i}.tunable",
+	    "soc.usb_drd${i}.tunable",
 	    legacy =>);
-    tunable("arm-io.atc-phy$i.tunable_ATC0AXI2AF",
-	    "soc.atcphy$i.tunable-ATC0AXI2AF",
+    tunable("arm-io.atc-phy${i}.tunable_ATC0AXI2AF",
+	    "soc.atcphy${i}.tunable-ATC0AXI2AF",
 	    fancy => base => $base);
-    tunable("arm-io.atc-phy$i.tunable_ATC_FABRIC",
-	    "soc.atcphy$i.tunable-ATC_FABRIC",
+    tunable("arm-io.atc-phy${i}.tunable_ATC_FABRIC",
+	    "soc.atcphy${i}.tunable-ATC_FABRIC",
 	    fancy => base => $base + 0x3045000);
-    tunable("arm-io.atc-phy$i.tunable_AUS_CMN_SHM",
-	    "soc.atcphy$i.tunable-AUS_CMN_SHM",
+    tunable("arm-io.atc-phy${i}.tunable_AUS_CMN_SHM",
+	    "soc.atcphy${i}.tunable-AUS_CMN_SHM",
 	    fancy => base => $base + 0x3000a00);
-    tunable("arm-io.atc-phy$i.tunable_AUS_CMN_TOP",
-	    "soc.atcphy$i.tunable-AUS_CMN_TOP",
+    tunable("arm-io.atc-phy${i}.tunable_AUS_CMN_TOP",
+	    "soc.atcphy${i}.tunable-AUS_CMN_TOP",
 	    fancy => base => $base + 0x3000800);
-    tunable("arm-io.atc-phy$i.tunable_AUSPLL_CORE",
-	    "soc.atcphy$i.tunable-AUSPLL_CORE",
+    tunable("arm-io.atc-phy${i}.tunable_AUSPLL_CORE",
+	    "soc.atcphy${i}.tunable-AUSPLL_CORE",
 	    fancy => base => $base + 0x3002200);
-    tunable("arm-io.atc-phy$i.tunable_AUSPLL_TOP",
-	    "soc.atcphy$i.tunable-AUSPLL_TOP",
+    tunable("arm-io.atc-phy${i}.tunable_AUSPLL_TOP",
+	    "soc.atcphy${i}.tunable-AUSPLL_TOP",
 	    fancy => base => $base + 0x3002000);
-    tunable("arm-io.atc-phy$i.tunable_CIO3PLL_CORE",
-	    "soc.atcphy$i.tunable-CIO3PLL_CORE",
+    tunable("arm-io.atc-phy${i}.tunable_CIO3PLL_CORE",
+	    "soc.atcphy${i}.tunable-CIO3PLL_CORE",
 	    fancy => base => $base + 0x3002a00);
-    tunable("arm-io.atc-phy$i.tunable_CIO3PLL_TOP",
-	    "soc.atcphy$i.tunable-CIO3PLL_TOP",
+    tunable("arm-io.atc-phy${i}.tunable_CIO3PLL_TOP",
+	    "soc.atcphy${i}.tunable-CIO3PLL_TOP",
 	    fancy => base => $base + 0x3002800);
-    tunable("arm-io.atc-phy$i.tunable_CIO_LN0_AUSPMA_RX_EQ",
-	    "soc.atcphy$i.tunable-CIO_LN0_AUSPMA_RX_EQ",
+    tunable("arm-io.atc-phy${i}.tunable_CIO_LN0_AUSPMA_RX_EQ",
+	    "soc.atcphy${i}.tunable-CIO_LN0_AUSPMA_RX_EQ",
 	    fancy => base => $base + 0x300a000);
-    tunable("arm-io.atc-phy$i.tunable_USB_LN0_AUSPMA_RX_EQ",
-	    "soc.atcphy$i.tunable-USB_LN0_AUSPMA_RX_EQ",
+    tunable("arm-io.atc-phy${i}.tunable_USB_LN0_AUSPMA_RX_EQ",
+	    "soc.atcphy${i}.tunable-USB_LN0_AUSPMA_RX_EQ",
 	    fancy => base => $base + 0x300a000);
-    tunable("arm-io.atc-phy$i.tunable_CIO_LN0_AUSPMA_RX_SHM",
-	    "soc.atcphy$i.tunable-CIO_LN0_AUSPMA_RX_SHM",
+    tunable("arm-io.atc-phy${i}.tunable_CIO_LN0_AUSPMA_RX_SHM",
+	    "soc.atcphy${i}.tunable-CIO_LN0_AUSPMA_RX_SHM",
 	    fancy => base => $base + 0x300b000);
-    tunable("arm-io.atc-phy$i.tunable_USB_LN0_AUSPMA_RX_SHM",
-	    "soc.atcphy$i.tunable-USB_LN0_AUSPMA_RX_SHM",
+    tunable("arm-io.atc-phy${i}.tunable_USB_LN0_AUSPMA_RX_SHM",
+	    "soc.atcphy${i}.tunable-USB_LN0_AUSPMA_RX_SHM",
 	    fancy => base => $base + 0x300b000);
-    tunable("arm-io.atc-phy$i.tunable_CIO_LN0_AUSPMA_RX_TOP",
-	    "soc.atcphy$i.tunable-CIO_LN0_AUSPMA_RX_TOP",
+    tunable("arm-io.atc-phy${i}.tunable_CIO_LN0_AUSPMA_RX_TOP",
+	    "soc.atcphy${i}.tunable-CIO_LN0_AUSPMA_RX_TOP",
 	    fancy => base => $base + 0x3009000);
-    tunable("arm-io.atc-phy$i.tunable_USB_LN0_AUSPMA_RX_TOP",
-	    "soc.atcphy$i.tunable-USB_LN0_AUSPMA_RX_TOP",
+    tunable("arm-io.atc-phy${i}.tunable_USB_LN0_AUSPMA_RX_TOP",
+	    "soc.atcphy${i}.tunable-USB_LN0_AUSPMA_RX_TOP",
 	    fancy => base => $base + 0x3009000);
-    tunable("arm-io.atc-phy$i.tunable_CIO_LN0_AUSPMA_TX_TOP",
-	    "soc.atcphy$i.tunable-CIO_LN0_AUSPMA_TX_TOP",
+    tunable("arm-io.atc-phy${i}.tunable_CIO_LN0_AUSPMA_TX_TOP",
+	    "soc.atcphy${i}.tunable-CIO_LN0_AUSPMA_TX_TOP",
 	    fancy => base => $base + 0x300c000);
-    tunable("arm-io.atc-phy$i.tunable_DP_LN0_AUSPMA_TX_TOP",
-	    "soc.atcphy$i.tunable-DP_LN0_AUSPMA_TX_TOP",
+    tunable("arm-io.atc-phy${i}.tunable_DP_LN0_AUSPMA_TX_TOP",
+	    "soc.atcphy${i}.tunable-DP_LN0_AUSPMA_TX_TOP",
 	    fancy => base => $base + 0x300c000);
-    tunable("arm-io.atc-phy$i.tunable_USB_LN0_AUSPMA_TX_TOP",
-	    "soc.atcphy$i.tunable-USB_LN0_AUSPMA_TX_TOP",
+    tunable("arm-io.atc-phy${i}.tunable_USB_LN0_AUSPMA_TX_TOP",
+	    "soc.atcphy${i}.tunable-USB_LN0_AUSPMA_TX_TOP",
 	    fancy => base => $base + 0x300c000);
-    tunable("arm-io.atc-phy$i.tunable_CIO_LN1_AUSPMA_RX_EQ",
-	    "soc.atcphy$i.tunable-CIO_LN1_AUSPMA_RX_EQ",
+    tunable("arm-io.atc-phy${i}.tunable_CIO_LN1_AUSPMA_RX_EQ",
+	    "soc.atcphy${i}.tunable-CIO_LN1_AUSPMA_RX_EQ",
 	    fancy => base => $base + 0x3011000);
-    tunable("arm-io.atc-phy$i.tunable_USB_LN1_AUSPMA_RX_EQ",
-	    "soc.atcphy$i.tunable-USB_LN1_AUSPMA_RX_EQ",
+    tunable("arm-io.atc-phy${i}.tunable_USB_LN1_AUSPMA_RX_EQ",
+	    "soc.atcphy${i}.tunable-USB_LN1_AUSPMA_RX_EQ",
 	    fancy => base => $base + 0x3011000);
-    tunable("arm-io.atc-phy$i.tunable_CIO_LN1_AUSPMA_RX_SHM",
-	    "soc.atcphy$i.tunable-CIO_LN1_AUSPMA_RX_SHM",
+    tunable("arm-io.atc-phy${i}.tunable_CIO_LN1_AUSPMA_RX_SHM",
+	    "soc.atcphy${i}.tunable-CIO_LN1_AUSPMA_RX_SHM",
 	    fancy => base => $base + 0x3012000);
-    tunable("arm-io.atc-phy$i.tunable_USB_LN1_AUSPMA_RX_SHM",
-	    "soc.atcphy$i.tunable-USB_LN1_AUSPMA_RX_SHM",
+    tunable("arm-io.atc-phy${i}.tunable_USB_LN1_AUSPMA_RX_SHM",
+	    "soc.atcphy${i}.tunable-USB_LN1_AUSPMA_RX_SHM",
 	    fancy => base => $base + 0x3012000);
-    tunable("arm-io.atc-phy$i.tunable_CIO_LN1_AUSPMA_RX_TOP",
-	    "soc.atcphy$i.tunable-CIO_LN1_AUSPMA_RX_TOP",
+    tunable("arm-io.atc-phy${i}.tunable_CIO_LN1_AUSPMA_RX_TOP",
+	    "soc.atcphy${i}.tunable-CIO_LN1_AUSPMA_RX_TOP",
 	    fancy => base => $base + 0x3010000);
-    tunable("arm-io.atc-phy$i.tunable_USB_LN1_AUSPMA_RX_TOP",
-	    "soc.atcphy$i.tunable-USB_LN1_AUSPMA_RX_TOP",
+    tunable("arm-io.atc-phy${i}.tunable_USB_LN1_AUSPMA_RX_TOP",
+	    "soc.atcphy${i}.tunable-USB_LN1_AUSPMA_RX_TOP",
 	    fancy => base => $base + 0x3010000);
-    tunable("arm-io.atc-phy$i.tunable_CIO_LN1_AUSPMA_TX_TOP",
-	    "soc.atcphy$i.tunable-CIO_LN1_AUSPMA_TX_TOP",
+    tunable("arm-io.atc-phy${i}.tunable_CIO_LN1_AUSPMA_TX_TOP",
+	    "soc.atcphy${i}.tunable-CIO_LN1_AUSPMA_TX_TOP",
 	    fancy => base => $base + 0x3013000);
-    tunable("arm-io.atc-phy$i.tunable_DP_LN1_AUSPMA_TX_TOP",
-	    "soc.atcphy$i.tunable-DP_LN1_AUSPMA_TX_TOP",
+    tunable("arm-io.atc-phy${i}.tunable_DP_LN1_AUSPMA_TX_TOP",
+	    "soc.atcphy${i}.tunable-DP_LN1_AUSPMA_TX_TOP",
 	    fancy => base => $base + 0x3013000);
-    tunable("arm-io.atc-phy$i.tunable_USB_LN1_AUSPMA_TX_TOP",
-	    "soc.atcphy$i.tunable-USB_LN1_AUSPMA_TX_TOP",
+    tunable("arm-io.atc-phy${i}.tunable_USB_LN1_AUSPMA_TX_TOP",
+	    "soc.atcphy${i}.tunable-USB_LN1_AUSPMA_TX_TOP",
 	    fancy => base => $base + 0x3013000);
-    tunable("arm-io.atc-phy$i.tunable_USB_ACIOPHY_TOP",
-	    "soc.atcphy$i.tunable-USB_ACIOPHY_TOP",
+    tunable("arm-io.atc-phy${i}.tunable_USB_ACIOPHY_TOP",
+	    "soc.atcphy${i}.tunable-USB_ACIOPHY_TOP",
 	    fancy => base => $base + 0x3000000);
-    tunable("arm-io.acio$i.fw_int_ctl_management_tunables",
-	    "soc.acio$i.tunable-fw_int_ctl_management",
+    tunable("arm-io.acio${i}.fw_int_ctl_management_tunables",
+	    "soc.acio${i}.tunable-fw_int_ctl_management",
 	    pcie => range => 0, base => 0x04000);
-    tunable("arm-io.acio$i.hbw_fabric_tunables",
-	    "soc.acio$i.tunable-hbw_fabric",
+    tunable("arm-io.acio${i}.hbw_fabric_tunables",
+	    "soc.acio${i}.tunable-hbw_fabric",
 	    pcie => range => 3);
-    tunable("arm-io.acio$i.hi_dn_merge_fabric_tunables",
-	    "soc.acio$i.tunable-hi_dn_merge_fabric",
+    tunable("arm-io.acio${i}.hi_dn_merge_fabric_tunables",
+	    "soc.acio${i}.tunable-hi_dn_merge_fabric",
 	    pcie => range => 0, base => 0xfc000);
-    tunable("arm-io.acio$i.hi_up_merge_fabric_tunables",
-	    "soc.acio$i.tunable-hi_up_merge_fabric",
+    tunable("arm-io.acio${i}.hi_up_merge_fabric_tunables",
+	    "soc.acio${i}.tunable-hi_up_merge_fabric",
 	    pcie => range => 0, base => 0xf8000);
-    tunable("arm-io.acio$i.hi_up_tx_desc_fabric_tunables",
-	    "soc.acio$i.tunable-hi_up_tx_desc_fabric",
+    tunable("arm-io.acio${i}.hi_up_tx_desc_fabric_tunables",
+	    "soc.acio${i}.tunable-hi_up_tx_desc_fabric",
 	    pcie => range => 0, base => 0xf0000);
-    tunable("arm-io.acio$i.hi_up_tx_data_fabric_tunables",
-	    "soc.acio$i.tunable-hi_up_tx_data_fabric",
+    tunable("arm-io.acio${i}.hi_up_tx_data_fabric_tunables",
+	    "soc.acio${i}.tunable-hi_up_tx_data_fabric",
 	    pcie => range => 0, base => 0xec000);
-    tunable("arm-io.acio$i.hi_up_rx_desc_fabric_tunables",
-	    "soc.acio$i.tunable-hi_up_rx_desc_fabric",
+    tunable("arm-io.acio${i}.hi_up_rx_desc_fabric_tunables",
+	    "soc.acio${i}.tunable-hi_up_rx_desc_fabric",
 	    pcie => range => 0, base => 0xe8000);
-    tunable("arm-io.acio$i.hi_up_wr_fabric_tunables",
-	    "soc.acio$i.tunable-hi_up_wr_fabric",
+    tunable("arm-io.acio${i}.hi_up_wr_fabric_tunables",
+	    "soc.acio${i}.tunable-hi_up_wr_fabric",
 	    pcie => range => 0, base => 0xf4000);
-    tunable("arm-io.acio$i.lbw_fabric_tunables",
-	    "soc.acio$i.tunable-lbw_fabric",
+    tunable("arm-io.acio${i}.lbw_fabric_tunables",
+	    "soc.acio${i}.tunable-lbw_fabric",
 	    pcie => range => 4);
-    tunable("arm-io.acio$i.pcie_adapter_regs_tunables",
-	    "soc.acio$i.tunable-pcie_adapter_regs",
+    tunable("arm-io.acio${i}.pcie_adapter_regs_tunables",
+	    "soc.acio${i}.tunable-pcie_adapter_regs",
 	    pcie => range => 5);
-    tunable("arm-io.acio$i.top_tunables",
-	    "soc.acio$i.tunable-top",
+    tunable("arm-io.acio${i}.top_tunables",
+	    "soc.acio${i}.tunable-top",
 	    pcie => range => 2);
-    tunable("arm-io.acio$i.thunderbolt-drom",
-	    "soc.acio$i.thunderbolt-drom",
+    tunable("arm-io.acio${i}.thunderbolt-drom",
+	    "soc.acio${i}.thunderbolt-drom",
 	    plain => size => 4);
-    tunable("arm-io.apciec$i.atc-apcie-debug-tunables",
-	    "soc.pciec$i.tunable-debug",
+    tunable("arm-io.apciec${i}.atc-apcie-debug-tunables",
+	    "soc.pciec${i}.tunable-debug",
 	    pcie => range => 6);
-    tunable("arm-io.apciec$i.atc-apcie-fabric-tunables",
-	    "soc.pciec$i.tunable-fabric",
+    tunable("arm-io.apciec${i}.atc-apcie-fabric-tunables",
+	    "soc.pciec${i}.tunable-fabric",
 	    pcie => range => 4);
-    tunable("arm-io.apciec$i.atc-apcie-oe-fabric-tunables",
-	    "soc.pciec$i.tunable-oe-fabric",
+    tunable("arm-io.apciec${i}.atc-apcie-oe-fabric-tunables",
+	    "soc.pciec${i}.tunable-oe-fabric",
 	    pcie => range => 5);
-    tunable("arm-io.apciec$i.atc-apcie-rc-tunables",
-	    "soc.pciec$i.tunable-rc",
+    tunable("arm-io.apciec${i}.atc-apcie-rc-tunables",
+	    "soc.pciec${i}.tunable-rc",
 	    pcie => range => 0);
-    tunable("arm-io.apciec$i.pcic$i-bridge.apcie-config-tunables",
-	    "soc.pciec$i.tunable-port0-config",
+    tunable("arm-io.apciec${i}.pcic${i}-bridge.apcie-config-tunables",
+	    "soc.pciec${i}.tunable-port0-config",
 	    pcie => range => 3, parent => 1);
     tunable("arm-io.apcie.apcie-axi2af-tunables",
 	    "soc.pcie.tunable-axi2af",
@@ -692,6 +657,14 @@ for my $v ([0, 0x380000000], [1, 0x500000000]) {
     tunable("arm-io.wlan.module-instance",
 	    "chosen.module-wlan0",
 	    plain =>);
+
+    tunable("arm-io.atc-phy${i}.reg",
+	    "soc.atcphy${i}.tunable-fuse",
+	    fusemap => map => $acio_fuse_map, base => $base + 0x3000000, doread => 1);
+
+    tunable("arm-io.apcie.reg",
+	    "soc.pcie.tunable-fuse",
+	    fusemap => map => $pcie_fuse_map, base => 0x6800c0000, doread => 1);
 }
 
 my %lines;
@@ -699,44 +672,6 @@ for my $key (sort keys %ltunables) {
     $lines{"$key = $ltunables{$key}"} = 1
 	unless $ltunables{$key} eq "<>";
 }
-
-#    strcpy(dst_phy, "/soc/atcphy0");     dst_phy[11] += atc;
-# prepare_fuse_tunable("/soc/pcie",
-# 		     "tunable-fuse",
-# 		     m1_pcie_fuse_map,
-# 		     0x6800c0000);
-# prepare_fuse_tunable(linux_dt, dst_phy, "tunable-fuse", m1_acio_fuse_map, base => $base + 0x3000000);
-
-my $pcie_fuse_map = [
-    # /* src_addr, dst_offs, src_[lsb,width], dst_[lsb,width] */
-    [ 0x23d2bc084, 0x6238,  4, 6,  0, 7 ],
-    [ 0x23d2bc084, 0x6220, 10, 3, 14, 3 ],
-    [ 0x23d2bc084, 0x62a4, 13, 2, 17, 2 ],
-    [ 0x23d2bc418, 0x522c, 27, 2,  9, 2 ],
-    [ 0x23d2bc418, 0x522c, 13, 3, 12, 3 ],
-    [ 0x23d2bc418, 0x5220, 18, 3, 14, 3 ],
-    [ 0x23d2bc418, 0x52a4, 21, 2, 17, 2 ],
-    [ 0x23d2bc418, 0x522c, 23, 5, 16, 5 ],
-    [ 0x23d2bc418, 0x5278, 23, 3, 20, 3 ],
-    [ 0x23d2bc418, 0x5018, 31, 1,  2, 1 ],
-    [ 0x23d2bc41c, 0x1204,  0, 5,  2, 5 ],
-    ];
-
-
-my $acio_fuse_map = [
-    # /* src_addr, dst_offs, src_[lsb,width], dst_[lsb,width] */
-    [ 0x23d2bc438, 0x2a38, 19, 6,  0, 7 ],
-    [ 0x23d2bc438, 0x2a38, 25, 6, 17, 7 ],
-    [ 0x23d2bc438, 0x2aa4, 31, 1, 17, 2 ],
-    [ 0x23d2bc438, 0x0a04, 14, 5,  2, 5 ],
-    [ 0x23d2bc43c, 0x2aa4,  0, 1, 17, 2 ],
-    [ 0x23d2bc43c, 0x2a20,  1, 3, 14, 3 ],
-    [ 0x23d2bc438, 0x222c,  7, 2,  9, 2 ],
-    [ 0x23d2bc438, 0x222c,  4, 3, 12, 3 ],
-    [ 0x23d2bc438, 0x22a4, 12, 2, 17, 2 ],
-    [ 0x23d2bc438, 0x2220,  9, 3, 14, 3 ],
-    [ 0x23d2bc438, 0x0a04, 14, 5,  2, 5 ],
-    ];
 
 my %props;
 my $fh;
@@ -750,117 +685,12 @@ while (<$fh>) {
 	$props{$prop} = DTNode->new("str-le32", $pval);
     }
 }
-my $fancy_atc_tunables = [
-    [ "tunable_ATC0AXI2AF",             "tunable-ATC0AXI2AF",            0],
-    [ "tunable_ATC_FABRIC",             "tunable-ATC_FABRIC",            0x3045000],
-    [ "tunable_AUS_CMN_SHM",            "tunable-AUS_CMN_SHM",           0x3000a00],
-    [ "tunable_AUS_CMN_TOP",            "tunable-AUS_CMN_TOP",           0x3000800],
-    [ "tunable_AUSPLL_CORE",            "tunable-AUSPLL_CORE",           0x3002200],
-    [ "tunable_AUSPLL_TOP",             "tunable-AUSPLL_TOP",            0x3002000],
-    [ "tunable_CIO3PLL_CORE",           "tunable-CIO3PLL_CORE",          0x3002a00],
-    [ "tunable_CIO3PLL_TOP",            "tunable-CIO3PLL_TOP",           0x3002800],
-    [ "tunable_CIO_LN0_AUSPMA_RX_EQ",   "tunable-CIO_LN0_AUSPMA_RX_EQ",  0x300a000],
-    [ "tunable_USB_LN0_AUSPMA_RX_EQ",   "tunable-USB_LN0_AUSPMA_RX_EQ",  0x300a000],
-    [ "tunable_CIO_LN0_AUSPMA_RX_SHM",  "tunable-CIO_LN0_AUSPMA_RX_SHM", 0x300b000],
-    [ "tunable_USB_LN0_AUSPMA_RX_SHM",  "tunable-USB_LN0_AUSPMA_RX_SHM", 0x300b000],
-    [ "tunable_CIO_LN0_AUSPMA_RX_TOP",  "tunable-CIO_LN0_AUSPMA_RX_TOP", 0x3009000],
-    [ "tunable_USB_LN0_AUSPMA_RX_TOP",  "tunable-USB_LN0_AUSPMA_RX_TOP", 0x3009000],
-    [ "tunable_CIO_LN0_AUSPMA_TX_TOP",  "tunable-CIO_LN0_AUSPMA_TX_TOP", 0x300c000],
-    [ "tunable_DP_LN0_AUSPMA_TX_TOP",   "tunable-DP_LN0_AUSPMA_TX_TOP",  0x300c000],
-    [ "tunable_USB_LN0_AUSPMA_TX_TOP",  "tunable-USB_LN0_AUSPMA_TX_TOP", 0x300c000],
-    [ "tunable_CIO_LN1_AUSPMA_RX_EQ",   "tunable-CIO_LN1_AUSPMA_RX_EQ",  0x3011000],
-    [ "tunable_USB_LN1_AUSPMA_RX_EQ",   "tunable-USB_LN1_AUSPMA_RX_EQ",  0x3011000],
-    [ "tunable_CIO_LN1_AUSPMA_RX_SHM",  "tunable-CIO_LN1_AUSPMA_RX_SHM", 0x3012000],
-    [ "tunable_USB_LN1_AUSPMA_RX_SHM",  "tunable-USB_LN1_AUSPMA_RX_SHM", 0x3012000],
-    [ "tunable_CIO_LN1_AUSPMA_RX_TOP",  "tunable-CIO_LN1_AUSPMA_RX_TOP", 0x3010000],
-    [ "tunable_USB_LN1_AUSPMA_RX_TOP",  "tunable-USB_LN1_AUSPMA_RX_TOP", 0x3010000],
-    [ "tunable_CIO_LN1_AUSPMA_TX_TOP",  "tunable-CIO_LN1_AUSPMA_TX_TOP", 0x3013000],
-    [ "tunable_DP_LN1_AUSPMA_TX_TOP",   "tunable-DP_LN1_AUSPMA_TX_TOP",  0x3013000],
-    [ "tunable_USB_LN1_AUSPMA_TX_TOP",  "tunable-USB_LN1_AUSPMA_TX_TOP", 0x3013000],
-    [ "tunable_USB_ACIOPHY_TOP",        "tunable-USB_ACIOPHY_TOP",       0x3000000],
-    ];
-
-# for my $fancy_atc_tunable (@$fancy_atc_tunables) {
-#     my ($astr, $lstr, $off) = @$fancy_atc_tunable;
-#     my $tunable = Tunable->new_from_fancy($props{"adt.device-tree.arm-io.atc-phy1.$astr"}, 0x500000000 + $off);
-#     my $ltunable = $tunable->encode_to_fancy($lprops_in{"soc.atcphy1\@500000000.reg"});
-#     my $lstring = $ltunable->string;
-#     $lines{"soc.atcphy1\@500000000.$lstr = $lstring"} = 1
-# 	unless $lstring eq "<>";
-# }
-# 
-# for my $fancy_usb_tunable (["tunable_ATC0AXI2AF", "tunable-ATC0AXI2AF", 0x500000000]) {
-#     my ($astr, $lstr, $off) = @$fancy_usb_tunable;
-#     next unless $props{"adt.device-tree.arm-io.usb-drd1.$astr"};
-#     my $tunable = Tunable->new_from_fancy($props{"adt.device-tree.arm-io.usb-drd1.$astr"}, 0x500000000 + $off);
-#     my $ltunable = $tunable->encode_to_fancy($lprops_in{"soc.usb_drd1\@502280000.reg"});
-#     my $lstring = $ltunable->string;
-#     $lines{"soc.atcphy1\@500000000.$lstr = $lstring"} = 1
-# 	unless $lstring eq "<>";
-# }
-# 
-# my $acio_pcie_tunables = [
-#     [ "fw_int_ctl_management_tunables", "tunable-fw_int_ctl_management", 0x04000, 0 ],
-#     [ "hbw_fabric_tunables",            "tunable-hbw_fabric", 0, 3 ],
-#     [ "hi_dn_merge_fabric_tunables",    "tunable-hi_dn_merge_fabric",    0xfc000, 0],
-#     [ "hi_up_merge_fabric_tunables",    "tunable-hi_up_merge_fabric",    0xf8000, 0],
-#     [ "hi_up_tx_desc_fabric_tunables",  "tunable-hi_up_tx_desc_fabric",  0xf0000, 0],
-#     [ "hi_up_tx_data_fabric_tunables",  "tunable-hi_up_tx_data_fabric",  0xec000, 0],
-#     [ "hi_up_rx_desc_fabric_tunables",  "tunable-hi_up_rx_desc_fabric",  0xe8000, 0],
-#     [ "hi_up_wr_fabric_tunables",       "tunable-hi_up_wr_fabric",       0xf4000, 0],
-#     [ "lbw_fabric_tunables",            "tunable-lbw_fabric",            0, 4],
-#     [ "pcie_adapter_regs_tunables",     "tunable-pcie_adapter_regs",     0, 5],
-#     [ "top_tunables",                   "tunable-top",                   0, 2],
-#     ];
-# 
-# for my $pcie_tunable (@$acio_pcie_tunables) {
-#     my ($astr, $lstr, $base, $range_index) = @$pcie_tunable;
-#     next unless $props{"adt.device-tree.arm-io.acio1.$astr"};
-#     my $tunable = Tunable->new_from_pcie($props{"adt.device-tree.arm-io.acio1.$astr"},
-# 					 $props{"adt.device-tree.arm-io.acio1.reg"},
-# 					 $base, $range_index);
-#     my $ltunable = $tunable->encode_to_fancy($lprops_in{"soc.acio1\@501f00000.reg"});
-#     my $lstring = $ltunable->string;
-#     $lines{"soc.acio1\@501f00000.$lstr = $lstring"} = 1;
-# }
-# 
-# 
-# my $pxc_pcie_tunables = [
-#     [ "atc-apcie-debug-tunables", "tunable-debug", 0, 6 ],
-#     [ "atc-apcie-fabric-tunables", "tunable-fabric", 0, 4 ],
-#     [ "atc-apcie-oe-fabric-tunables", "tunable-oe-fabric", 0, 5 ],
-#     [ "atc-apcie-rc-tunables", "tunable-rc", 0, 0 ],
-#     ];
-# 
-# for my $pxc_pcie_tunable (@$pxc_pcie_tunables) {
-#     my ($astr, $lstr, $base, $range_index) = @$pxc_pcie_tunable;
-#     next unless $props{"adt.device-tree.arm-io.apciec1.$astr"};
-#     my $tunable = Tunable->new_from_pcie($props{"adt.device-tree.arm-io.apciec1.$astr"},
-# 					 $props{"adt.device-tree.arm-io.apciec1.reg"},
-# 					 $base, $range_index);
-#     my $ltunable = $tunable->encode_to_fancy($lprops_in{"soc.pciec1\@530000000.reg"});
-#     my $lstring = $ltunable->string;
-#     $lines{"soc.pciec1\@530000000.$lstr = $lstring"} = 1;
-# }
-# use Data::Dumper;
-# 
-# if ($props{"adt.device-tree.arm-io.usb-drd1.tunable"}) {
-#     my $tunable = Tunable->new_from_legacy($props{"adt.device-tree.arm-io.usb-drd1.tunable"},
-# 					   $props{"adt.device-tree.arm-io.usb-drd1.reg"});
-#     warn Dumper($tunable);
-#     my $ltunable = $tunable->encode_to_fancy($lprops_in{"soc.usb_drd1\@502280000.reg"});
-#     my $lstring = $ltunable->string;
-#     $lines{"soc.usb_drd1\@502280000.tunable = $lstring"} = 1
-# 	unless $lstring eq "<>";
-# }
-
-warn "have " . scalar(keys(%lines)) . " lines";
-
 my $fh;
 open $fh, "./dt/-tunable.dtp" or die;
 while (<$fh>) {
     chomp;
 
+    print "$_\n" if exists $lines{$_};
     delete $lines{$_};
 }
 
