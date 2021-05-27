@@ -4,8 +4,10 @@ mount -t proc proc proc
 mount -t sysfs sys sys
 mount -t configfs configfs sys/kernel/config
 tar xzvf /perl.tar.gz
+tar xzvf /perl2.tar.gz
 tar xvf /m1lli-scripts.tar
 cp /dt /bin
+export PATH=/bin/:/usr/bin/:/
 cat /proc/devices | while read NUM NAME; do if [ "$NAME" = "ttyGS" ]; then mknod /dev/ttyGS0 c $NUM 0; fi; done
 mkdir /sys/kernel/config/usb_gadget/G1
 echo 0x2 > /sys/kernel/config/usb_gadget/G1/bDeviceClass
@@ -51,7 +53,11 @@ dt dtb-to-dtp /boot/linux.dtb /boot/fixed.dtp
 cat /boot/fixed.dtp /boot/tunables.dtp /boot/bootargs.dtp > /boot/next-stage.dtp
 dt dtp-to-dtb /boot/next-stage.dtp /boot/next-stage.dtb
 
-sleep 1m && ! test -e /noboot && /bin/kexec -fix /boot/Image --dtb=/boot/next-stage.dtb --initrd=/boot/initfs --command-line="clk_ignore_unused root=/dev/nvme0n1p4 1") &
+dt dtp-to-dtb /boot/fdt.dtb.dtp /boot/fdt.dtb.dtp.dtb
+dt dtb-to-dtp /boot/fdt.dtb.dtp.dtb /boot/fdt.dtb.dtp.dtb.dtp
+diff -u /boot/fdt.dtb.dtp.dtb.dtp /boot/next-stage.dtp
+
+(sleep 1m && ! test -e /noboot && /bin/kexec -fix /boot/Image --dtb=/boot/next-stage.dtb --initrd=/boot/initfs --command-line="clk_ignore_unused root=/dev/nvme0n1p4 1") &
 read; touch /noboot
 while true; do
     ash
