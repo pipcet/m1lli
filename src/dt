@@ -145,8 +145,6 @@ sub encode {
 
 package Tunable;
 
-use Data::Dumper;
-
 sub new {
     my ($class, $kind, @args) = @_;
 
