@@ -8,4 +8,4 @@ cp modules/*.ko /mnt
 sync
 while sleep 1; do cat /sys/class/power_supply/smc_battery/energy_now; done &
 /bin/sh
-exec switch_root /mnt /sbin/init
+exec /bin/busybox switch_root /mnt /sbin/init
