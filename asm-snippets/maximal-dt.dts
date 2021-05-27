@@ -23,11 +23,11 @@
 
 	framebuffer@9e0df8000 {
 		compatible = "simple-framebuffer";
-		reg = <0x0b 0xdf439400 0x00 0x3e80000>;
+		reg = <0x0b 0xdf438000 0x00 0x3e80000>;
 		format = "x8r8g8b8";
 		height = <0x640>;
 		stride = <0x2800>;
-		width = <0x500>;
+		width = <0xa00>;
 		status = "okay";
 		backlight = <0x02>;
 	};
@@ -62,7 +62,6 @@
 
 		bootargs@800000000 {
 			reg = "bootargsgohere!";
-			no-map;
 		};
 
 		kmem@800000000 {
