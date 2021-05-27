@@ -7,8 +7,13 @@
 
 int main(int argc, char **argv)
 {
-  int fd = open("/sys/firmware/devicetree/base/reserved-memory/adt@800000000/reg",
-		O_RDONLY);
+  char *path;
+  if (argc < 2 || strcmp(argv[1], "--bootargs")) {
+    asprintf(&path, "/sys/firmware/devicetree/base/reserved-memory/adt@800000000/reg");
+  } else {
+    asprintf(&path, "/sys/firmware/devicetree/base/reserved-memory/bootargs@800000000/reg");
+  }
+  int fd = open(path, O_RDONLY);
   uint64_t reg[2];
   if (fd < 0 || read(fd, reg, 16) != 16)
     goto error;
