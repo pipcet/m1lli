@@ -842,6 +842,28 @@ sub adt_to_dtp {
     return $dtp;
 }
 
+sub propertize_bootargs {
+    my $bootargs = shift;
+    my ($revver, $resvd0, $virt_base, $phys_base, $mem_size,
+	$top_of_kernel, $fb_phys, $fb_display, $fb_stride,
+	$fb_width, $fb_height, $fb_depth, $machine_type, $resvd1,
+	$dtree_virt, $dtree_size, $cmdline) =
+	unpack "LLQQQQQQQQQQLLQLZ", $bootargs;
+
+    my $ret = "";
+    my $fb_reg0 = sprintf("0x%02x", ($fb_phys>>32));
+    my $fb_reg1 = sprintf("0x%02x", ($fb_phys & 0xffffffff));
+    my $fb_len = $fb_stride * $fb_height;
+    my $fb_reg2 = sprintf("0x%02x", ($fb_len>>32));
+    my $fb_reg3 = sprintf("0x%02x", ($fb_len & 0xffffffff));
+    $ret .= "framebuffer\@9e0df8000.reg = <$fb_reg0 $fb_reg1 $fb_reg2 $fb_reg3>\n";
+    $ret .= "framebuffer\@9e0df8000.height = <$fb_height>\n";
+    $ret .= "framebuffer\@9e0df8000.width = <$fb_width>\n";
+    $ret .= "framebuffer\@9e0df8000.stride = <$fb_stride>\n";
+
+    return $ret;
+}
+
 my $stdin = "";
 if ($ARGV[0] eq "--help") {
     usage();
@@ -880,13 +902,9 @@ if ($ARGV[0] eq "--help") {
     run(["adtdump"], \$stdin, \$adt) or die;
     write_file($ARGV[1], $adt) or die;
 } elsif ($ARGV[0] eq "extract-bootargs") {
-    my $dtp = read_file($ARGV[1]);
-    my $bootargs = "";
-    for (split("\n", $dtp)) {
-	/^reserved-memory\./ && ($bootargs .= "$_\n");
-	/^framebuffer[@.]/ && ($bootargs .= "$_\n");
-    }
-    write_file($ARGV[2], $bootargs) or die;
+    my $bootargs;
+    run(["adtdump", "--bootargs"], \$stdin, \$bootargs) or die;
+    write_file($ARGV[1], propertize_bootargs($bootargs)) or die;
 } else {
     usage();
     exit(1);
