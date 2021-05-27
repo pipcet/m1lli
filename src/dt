@@ -751,9 +751,11 @@ sub dtp_to_dts {
 	chomp;
 	if (/^(.*?)([^. ]*) = (.*)$/) {
 	    push @fdt, $1 unless exists $fdt{$1};
+	    @{$fdt{$1}} = grep { $_->[0] ne $2 } @{$fdt{$1}};
 	    push @{$fdt{$1}}, [$2, $3];
 	} elsif (/^(.*?)([^. ]*)$/) {
 	    push @fdt, $1 unless exists $fdt{$1};
+	    @{$fdt{$1}} = grep { $_->[0] ne $2 } @{$fdt{$1}};
 	    push @{$fdt{$1}}, [$2];
 	}
     }
