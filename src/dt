@@ -857,6 +857,9 @@ sub propertize_bootargs {
     my $fb_reg2 = sprintf("0x%02x", ($fb_len>>32));
     my $fb_reg3 = sprintf("0x%02x", ($fb_len & 0xffffffff));
     $ret .= "framebuffer\@9e0df8000.reg = <$fb_reg0 $fb_reg1 $fb_reg2 $fb_reg3>\n";
+    $fb_height = sprintf("0x%02x", $fb_height);
+    $fb_width = sprintf("0x%02x", $fb_width);
+    $fb_stride = sprintf("0x%02x", $fb_stride);
     $ret .= "framebuffer\@9e0df8000.height = <$fb_height>\n";
     $ret .= "framebuffer\@9e0df8000.width = <$fb_width>\n";
     $ret .= "framebuffer\@9e0df8000.stride = <$fb_stride>\n";
