@@ -11,6 +11,7 @@ ln -sf perl5 /usr/lib/perl
 ln -sf 5.29.3 /usr/lib/perl5/5.32
 tar xvf /m1lli-scripts.tar
 cp /dt /bin
+cp /adtdump /bin
 export PATH=/bin/:/usr/bin/:/
 dt dtb-to-dtp /sys/firmware/fdt /boot/fdt.dtb.dtp
 dt extract-bootargs /boot/fdt.dtb.dtp /boot/bootargs.dtp
