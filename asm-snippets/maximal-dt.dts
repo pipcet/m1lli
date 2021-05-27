@@ -67,12 +67,10 @@
 
 		kmem@800000000 {
 			reg = "kmemgoeshere!!!";
-			no-map;
 		};
 
 		base@800000000 {
 			reg = "basegoeshere!!!";
-			no-map;
 		};
 	};
 
