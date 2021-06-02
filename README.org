@@ -1,3 +1,5 @@
+* This repo has been restructured and is now part of https://github.com/pipcet/pearl.
+
 * m1lli is Linux loading itself
 
 This is a bootloader for Linux on Apple M1 machines. The idea is to
